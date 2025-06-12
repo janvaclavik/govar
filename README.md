@@ -67,7 +67,7 @@ func main() {
 }
 ```
 
-## ⚖️ Comparison with other inspecors, dumpers and debug utils for Go
+## ⚖️ Comparison with other tools
 
 TODO
 
