@@ -1,6 +1,6 @@
 # govar
 
-`govar` is a handy Go object inspector and variable dumper. It provides a well-arranged, pretty-printed peeks into selected constants and variables in your program. You can also use it as a friendly assistant when learning about Go data types and structures, and it has no external dependencies! It focuses on:
+`govar` is a handy Go object inspector and variable dumper. It provides a well-arranged, pretty-printed peeks into selected constants and variables in your program. You can also use it as a friendly assistant when learning about Go data types, structures and interface. `govar` has no external dependencies and is go-routine friendly! It focuses on:
 
 - **Readable, styled output** ( *stdout* | *string* | *io.Writer* | *HTML* )
 - **Complete type and value information for any constant or variable**, including structured data and functions
