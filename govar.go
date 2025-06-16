@@ -258,6 +258,11 @@ func (d *Dumper) Die(vs ...any) {
 
 // Returns a string representation for a value type (and handle any type)
 func (d *Dumper) formatType(v reflect.Value, isInCollection bool) string {
+
+	if !v.IsValid() {
+		return d.ApplyFormat(ColorGray, "invalid")
+	}
+
 	// print element type signature
 	vKind := v.Kind()
 	expectedType := ""
@@ -325,11 +330,12 @@ func (d *Dumper) renderAllValues(tw *tabwriter.Writer, vs ...any) {
 		rv := reflect.ValueOf(v)
 		rv = makeAddressable(rv)
 
-		// print type signature
-		fmt.Fprint(tw, " "+d.ApplyFormat(ColorGray, d.formatType(rv, false)))
+		// Render value's type signature
+		fmt.Fprint(tw, d.ApplyFormat(ColorGray, d.formatType(rv, false)))
 		fmt.Fprint(tw, " => ")
-
+		// Render the value itself
 		d.renderValue(tw, rv, 0, visited)
+
 		fmt.Fprintln(tw)
 	}
 }
@@ -446,7 +452,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 
 			// print element type signature
 			formattedType := d.formatType(v.MapIndex(key), true)
-			d.renderIndent(tw, level+1, fmt.Sprintf("%s %s => ", d.ApplyFormat(ColorViolet, keyStr), formattedType))
+			d.renderIndent(tw, level+1, fmt.Sprintf("%s %s	=> ", d.ApplyFormat(ColorViolet, keyStr), formattedType))
 
 			// recursively print the map element value itself
 			d.renderValue(tw, v.MapIndex(key), level+1, visited)
