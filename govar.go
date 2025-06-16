@@ -395,7 +395,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		str := d.stringEscape(v.String())
 		str = d.ApplyFormat(ColorYellow, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorYellow, `"`)
 		fmt.Fprint(tw, str)
-		fmt.Fprint(tw, d.ApplyFormat(ColorMutedBlue, fmt.Sprintf(" R:%d", strLen)))
+		fmt.Fprint(tw, d.ApplyFormat(ColorMutedBlue, fmt.Sprintf(" [run=%d]", strLen)))
 	case reflect.Struct:
 		t := v.Type()
 		fmt.Fprint(tw, "{")
@@ -428,13 +428,13 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 			symbol := "#"
 			methodType := " " + d.ApplyFormat(ColorGray, m.Func.Type().String())
 			d.renderIndent(tw, level+1, d.ApplyFormat(ColorYellow, symbol)+d.ApplyFormat(ColorLightGray, m.Name)+methodType)
-			fmt.Fprint(tw, d.ApplyFormat(ColorDarkGray, " [Method]"))
+			fmt.Fprint(tw, d.ApplyFormat(ColorMutedBlue, " [Method]"))
 			fmt.Fprintln(tw)
 		}
 		d.renderIndent(tw, level, "")
 		fmt.Fprint(tw, "}")
 	case reflect.Map:
-		mapLen := fmt.Sprintf("L:%d", v.Len())
+		mapLen := fmt.Sprintf("[len=%d]", v.Len())
 		fmt.Fprintln(tw, d.ApplyFormat(ColorMutedBlue, mapLen), "{")
 		keys := v.MapKeys()
 		for i, key := range keys {
@@ -457,9 +457,9 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 	case reflect.Slice, reflect.Array:
 		var listLen string
 		if v.Kind() == reflect.Array {
-			listLen = fmt.Sprintf("L:%d", v.Len())
+			listLen = fmt.Sprintf("[len=%d]", v.Len())
 		} else {
-			listLen = fmt.Sprintf("L:%d|C:%d", v.Len(), v.Cap())
+			listLen = fmt.Sprintf("[len=%d cap=%d]", v.Len(), v.Cap())
 		}
 		fmt.Fprintln(tw, d.ApplyFormat(ColorMutedBlue, listLen), "{")
 		for i := range v.Len() {
@@ -485,7 +485,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		if v.IsNil() {
 			fmt.Fprint(tw, d.ApplyFormat(ColorMutedRed, "<nil>"))
 		} else {
-			bufferStr := d.ApplyFormat(ColorMutedBlue, fmt.Sprintf("B:%d", v.Cap()))
+			bufferStr := d.ApplyFormat(ColorMutedBlue, fmt.Sprintf("[buf=%d]", v.Cap()))
 			fmt.Fprintf(tw, "%s%s %s", d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorCyan, fmt.Sprintf("%#x", v.Pointer())), bufferStr)
 		}
 	default:
