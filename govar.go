@@ -356,8 +356,8 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		return
 	}
 
-	if s := d.asStringer(v); s != "" {
-		fmt.Fprint(tw, s)
+	if str := d.asStringer(v); str != "" {
+		fmt.Fprint(tw, str, d.ApplyFormat(ColorMutedBlue, " [⧉ fmt.Stringer]"))
 		return
 	}
 
@@ -399,7 +399,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 	case reflect.String:
 		strLen := utf8.RuneCountInString(v.String())
 		str := d.stringEscape(v.String())
-		str = d.ApplyFormat(ColorYellow, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorYellow, `"`)
+		str = d.ApplyFormat(ColorOrange, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorOrange, `"`)
 		fmt.Fprint(tw, str)
 		fmt.Fprint(tw, d.ApplyFormat(ColorMutedBlue, fmt.Sprintf(" [run=%d]", strLen)))
 	case reflect.Struct:
@@ -409,20 +409,20 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		visibleFields := reflect.VisibleFields(t)
 		for _, field := range visibleFields {
 			fieldVal := v.FieldByIndex(field.Index)
-			symbol := "+"
+			symbol := "⯀ "
 			if field.PkgPath != "" {
-				symbol = "-"
+				symbol = "🞏 "
 				fieldVal = forceExported(fieldVal)
 			}
 			// print visibility and symbol name
-			d.renderIndent(tw, level+1, d.ApplyFormat(ColorYellow, symbol)+field.Name)
+			d.renderIndent(tw, level+1, d.ApplyFormat(ColorOrange, symbol)+field.Name)
 			// print element type signature
 			formattedType := d.formatType(fieldVal, false)
 			fmt.Fprintf(tw, "	%s	=> ", formattedType)
 
 			// print the struct value itself
-			if s := d.asStringer(fieldVal); s != "" {
-				fmt.Fprint(tw, s)
+			if str := d.asStringer(fieldVal); str != "" {
+				fmt.Fprint(tw, str, d.ApplyFormat(ColorMutedBlue, " [⧉ fmt.Stringer]"))
 			} else {
 				d.renderValue(tw, fieldVal, level+1, visited)
 			}
@@ -431,9 +431,9 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		// print all of struct's type methods (TODO: could be optional)
 		for _, m := range findTypeMethods(t) {
 			// print visibility and symbol name
-			symbol := "#"
+			symbol := "⦿ "
 			methodType := " " + d.ApplyFormat(ColorGray, m.Func.Type().String())
-			d.renderIndent(tw, level+1, d.ApplyFormat(ColorYellow, symbol)+d.ApplyFormat(ColorLightGray, m.Name)+methodType)
+			d.renderIndent(tw, level+1, d.ApplyFormat(ColorOrange, symbol)+m.Name+methodType)
 			fmt.Fprint(tw, d.ApplyFormat(ColorMutedBlue, " [Method]"))
 			fmt.Fprintln(tw)
 		}
@@ -484,7 +484,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		d.renderIndent(tw, level, "")
 		fmt.Fprint(tw, "}")
 	case reflect.Func:
-		fun := d.ApplyFormat(ColorBlue, "func@") + d.ApplyFormat(ColorCyan, fmt.Sprintf("%#x", v.Pointer()))
+		fun := d.ApplyFormat(ColorBlue, "func@") + d.ApplyFormat(ColorTeal, fmt.Sprintf("%#x", v.Pointer()))
 		funName := " [" + d.ApplyFormat(ColorBlue, getFunctionName(v)) + "]"
 		fmt.Fprint(tw, fun, funName)
 	case reflect.Chan:
@@ -492,7 +492,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 			fmt.Fprint(tw, d.ApplyFormat(ColorMutedRed, "<nil>"))
 		} else {
 			bufferStr := d.ApplyFormat(ColorMutedBlue, fmt.Sprintf("[buf=%d]", v.Cap()))
-			fmt.Fprintf(tw, "%s%s %s", d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorCyan, fmt.Sprintf("%#x", v.Pointer())), bufferStr)
+			fmt.Fprintf(tw, "%s%s %s", d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorTeal, fmt.Sprintf("%#x", v.Pointer())), bufferStr)
 		}
 	default:
 		// Should be unreachable - all reflect.Kind cases are handled
@@ -511,7 +511,9 @@ func (d *Dumper) asStringer(v reflect.Value) string {
 			if rv.Kind() == reflect.Ptr && rv.IsNil() {
 				return d.ApplyFormat(ColorMutedRed, "<nil>")
 			}
-			return d.ApplyFormat(ColorLime, s.String())
+			str := d.stringEscape(s.String())
+			str = d.ApplyFormat(ColorOrange, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorOrange, `"`)
+			return str
 		}
 	}
 	return ""
