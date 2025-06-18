@@ -19,7 +19,7 @@ const (
 	Version     = "0.4.0"
 )
 
-// ANSI Colors
+// (OLD) ANSI Colors
 const (
 	ColorDarkGray  = "\033[38;5;238m"
 	ColorGray      = "\033[38;5;245m"
@@ -51,7 +51,7 @@ const (
 	ColorReset = "\033[0m"
 )
 
-// ColorPaletteHTML maps color codes to HTML colors.
+// (OLD) ColorPaletteHTML maps color codes to HTML colors.
 var ColorPaletteHTML = map[string]string{
 	ColorDarkGray:  "#444444",
 	ColorGray:      "#8a8a8a",
@@ -277,14 +277,13 @@ func (d *Dumper) Die(vs ...any) {
 }
 
 func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
-	// TODO: change this (isInCollection)
-	length := len(d.formatType(v, true))
+	length := 0
 	switch v.Kind() {
 	case reflect.String:
 		strVal := v.String()
-		length += len(strconv.Quote(strVal))
+		runeCount := utf8.RuneCountInString(strVal)
+		length += runeCount + 2
 		if d.config.ShowMetaInformation {
-			runeCount := utf8.RuneCountInString(strVal)
 			meta := fmt.Sprintf(" [run=%d]", runeCount)
 			length += len(meta)
 		}
@@ -302,6 +301,7 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 		return length + 5
 
 	case reflect.Array, reflect.Slice:
+		// TODO: should account for type lengths if ShowTypes is ON
 		length += 2 // braces
 		if d.config.ShowMetaInformation {
 			if v.Kind() == reflect.Slice {
@@ -314,11 +314,12 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 			if i > 0 {
 				length += 2 // comma and space
 			}
-			length += d.estimatedInlineLength(v.Index(i))
+			length += 1 + 4 + d.estimatedInlineLength(v.Index(i)) // i => val
 		}
 		return length
 
 	case reflect.Map:
+		// TODO: should account for type lengths if ShowTypes is ON
 		length += 2 // braces
 		if d.config.ShowMetaInformation {
 			length += len(fmt.Sprintf("[len=%d] ", v.Len()))
@@ -328,11 +329,12 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 				length += 2 // comma and space
 			}
 			val := v.MapIndex(key)
-			length += d.estimatedInlineLength(key) + 1 + d.estimatedInlineLength(val) // key:val
+			length += d.estimatedInlineLength(key) + 4 + d.estimatedInlineLength(val) // key => val
 		}
 		return length
 
 	case reflect.Struct:
+		// TODO: should account for type lengths if ShowTypes is ON
 		length += 2 // braces
 		t := v.Type()
 		for i := range v.NumField() {
@@ -340,7 +342,7 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 				length += 2 // comma and space
 			}
 			name := t.Field(i).Name
-			length += len(name) + 3 + d.estimatedInlineLength(v.Field(i)) // Name: val
+			length += len(name) + 4 + d.estimatedInlineLength(v.Field(i)) // Name => val
 		}
 		return length
 
