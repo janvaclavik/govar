@@ -300,7 +300,7 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 		runeCount := utf8.RuneCountInString(strVal)
 		length += runeCount + 2
 		if d.config.ShowMetaInformation {
-			meta := fmt.Sprintf(" [R=%d]", runeCount)
+			meta := fmt.Sprintf(" |R=%d|", runeCount)
 			length += len(meta)
 		}
 		return length
@@ -315,17 +315,16 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 			return length + 4
 		}
 		return length + 5
-
 	case reflect.Array, reflect.Slice:
-		// TODO: should account for type lengths if ShowTypes is ON
 		length += 2 // braces
 		if d.config.ShowMetaInformation {
-			if v.Kind() == reflect.Slice {
-				length += len(fmt.Sprintf("[L=%d C=%d] ", v.Len(), v.Cap()))
+			if v.Kind() == reflect.Slice && v.Len() != v.Cap() {
+				length += len(fmt.Sprintf("|L:%d C:%d| ", v.Len(), v.Cap()))
 			} else {
-				length += len(fmt.Sprintf("[L=%d] ", v.Len()))
+				length += len(fmt.Sprintf("|%d| ", v.Len()))
 			}
 		}
+
 		for i := range v.Len() {
 			if i > 0 {
 				length += 2 // comma and space
@@ -335,23 +334,24 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 		return length
 
 	case reflect.Map:
-		// TODO: should account for type lengths only if ShowTypes is ON
 		length += 2 // braces
 		if d.config.ShowMetaInformation {
-			length += len(fmt.Sprintf("[L=%d] ", v.Len()))
+			length += len(fmt.Sprintf("|%d| ", v.Len()))
 		}
 		for i, key := range v.MapKeys() {
 			if i > 0 {
 				length += 2 // comma and space
 			}
 			val := v.MapIndex(key)
-			length += len(val.Type().String()) + 1                                    // type len + whitespace
+
 			length += d.estimatedInlineLength(key) + 4 + d.estimatedInlineLength(val) // key => val
+			if d.config.ShowTypes {
+				length += len(val.Type().String()) + 1 // type len + whitespace
+			}
 		}
 		return length
 
 	case reflect.Struct:
-		// TODO: should account for type lengths only if ShowTypes is ON
 		length += 2 // braces
 		t := v.Type()
 		for i := range v.NumField() {
@@ -359,8 +359,10 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 				length += 2 // comma and space
 			}
 			name := t.Field(i).Name
-			length += len(v.Field(i).Type().String()) + 1                 // type len + whitespace
 			length += len(name) + 4 + d.estimatedInlineLength(v.Field(i)) // Name => val
+			if d.config.ShowTypes {
+				length += len(v.Field(i).Type().String()) + 1 // type len + whitespace
+			}
 		}
 		return length
 
@@ -371,6 +373,9 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 
 // Returns a string representation for a value type (and handle any type)
 func (d *Dumper) formatType(v reflect.Value, isInCollection bool) string {
+	if !d.config.ShowTypes {
+		return ""
+	}
 
 	if !v.IsValid() {
 		return d.ApplyFormat(ColorDarkGray, "invalid")
@@ -380,15 +385,15 @@ func (d *Dumper) formatType(v reflect.Value, isInCollection bool) string {
 	vKind := v.Kind()
 	expectedType := ""
 	if vKind == reflect.Array || vKind == reflect.Slice || vKind == reflect.Map || vKind == reflect.Struct || vKind == reflect.Interface {
-		expectedType = d.ApplyFormat(ColorDarkGray, v.Type().String())
+		expectedType = " " + d.ApplyFormat(ColorDarkGray, v.Type().String())
 	} else if !isInCollection {
-		expectedType = d.ApplyFormat(ColorDarkGray, v.Type().String())
+		expectedType = " " + d.ApplyFormat(ColorDarkGray, v.Type().String())
 	}
 
 	// if element type is just "any", print the actual variable type
 	actualType := ""
 	if vKind == reflect.Interface && v.Type().NumMethod() == 0 && !v.IsNil() {
-		actualType = d.ApplyFormat(ColorDarkGray, " ("+v.Elem().Type().String()+")")
+		actualType = d.ApplyFormat(ColorDarkGray, "("+v.Elem().Type().String()+")")
 	}
 	formattedType := expectedType + actualType
 
@@ -427,7 +432,10 @@ func (d *Dumper) renderAllValues(tw *tabwriter.Writer, vs ...any) {
 
 		// Render value's type signature
 		fmt.Fprint(tw, d.ApplyFormat(ColorDarkGray, d.formatType(rv, false)))
-		fmt.Fprint(tw, " => ")
+		// On the zero level, if types are ON, render the "mapping to" symbol
+		if d.config.ShowTypes {
+			fmt.Fprint(tw, " => ")
+		}
 		// Render the value itself
 		d.renderValue(tw, rv, 0, visited)
 
@@ -451,11 +459,21 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		return
 	}
 
-	if str := d.asStringer(v); str != "" {
-		fmt.Fprint(tw, str)
+	// check for std fmt.Stringer interface representation
+	if str := d.asStringerInterface(v); str != "" {
 		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, " "+SymbolMetaL+"⧉ fmt.Stringer"))
+			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, "⧉ Stringer"+SymbolMetaR+" "))
 		}
+		fmt.Fprint(tw, str)
+		return
+	}
+
+	// check for std error interface representation
+	if str := d.asErrorInterface(v); str != "" {
+		if d.config.ShowMetaInformation {
+			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, "⧉ error"+SymbolMetaR+" "))
+		}
+		fmt.Fprint(tw, str)
 		return
 	}
 
@@ -498,10 +516,10 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		strLen := utf8.RuneCountInString(v.String())
 		str := d.stringEscape(v.String())
 		str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorGoldenrod, `"`)
-		fmt.Fprint(tw, str)
 		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, fmt.Sprintf(" "+SymbolMetaL+"|R:%d|", strLen)))
+			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, fmt.Sprintf("|R:%d| ", strLen)))
 		}
+		fmt.Fprint(tw, str)
 	case reflect.Struct:
 		t := v.Type()
 		fmt.Fprint(tw, "{")
@@ -531,11 +549,11 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 			fmt.Fprintf(tw, "	%s	=> ", formattedType)
 
 			// Try the stringer interface on this struct field first
-			if str := d.asStringer(fieldVal); str != "" {
-				fmt.Fprint(tw, str)
+			if str := d.asStringerInterface(fieldVal); str != "" {
 				if d.config.ShowMetaInformation {
-					fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, " "+SymbolMetaL+"⧉ fmt.Stringer"))
+					fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, "⧉ Stringer"+SymbolMetaR+" "))
 				}
+				fmt.Fprint(tw, str)
 			} else {
 				// or recursively render the field value itself
 				if !d.shouldRenderInline(v) {
@@ -565,7 +583,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		fmt.Fprint(tw, "}")
 	case reflect.Map:
 		if d.config.ShowMetaInformation {
-			mapLen := fmt.Sprintf("|%d|"+SymbolMetaR+" ", v.Len())
+			mapLen := fmt.Sprintf("|%d| ", v.Len())
 			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, mapLen))
 		}
 
@@ -614,12 +632,12 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		if d.config.ShowMetaInformation {
 			var listLen string
 			if v.Kind() == reflect.Array {
-				listLen = fmt.Sprintf("|%d|"+SymbolMetaR+" ", v.Len())
+				listLen = fmt.Sprintf("|%d| ", v.Len())
 			} else {
 				if v.Len() == v.Cap() {
-					listLen = fmt.Sprintf("|%d|"+SymbolMetaR+" ", v.Len())
+					listLen = fmt.Sprintf("|%d| ", v.Len())
 				} else {
-					listLen = fmt.Sprintf("|L:%d C:%d|"+SymbolMetaR+" ", v.Len(), v.Cap())
+					listLen = fmt.Sprintf("|L:%d C:%d| ", v.Len(), v.Cap())
 				}
 
 			}
@@ -639,12 +657,12 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 			indexSymbol := d.ApplyFormat(ColorDarkTeal, fmt.Sprintf("%d", i))
 			if !d.shouldRenderInline(v) {
 				// indent, render index (and type)
-				d.renderIndent(tw, level+1, fmt.Sprintf("%s %s => ", indexSymbol, formattedType))
+				d.renderIndent(tw, level+1, fmt.Sprintf("%s%s => ", indexSymbol, formattedType))
 				// recursively print the array value itself, increase indent level
 				d.renderValue(tw, v.Index(i), level+1, visited)
 			} else {
 				// do not indent, render index (and type)
-				fmt.Fprintf(tw, "%s %s => ", indexSymbol, formattedType)
+				fmt.Fprintf(tw, "%s%s => ", indexSymbol, formattedType)
 				// recursively print the array value itself, same indent level
 				d.renderValue(tw, v.Index(i), level, visited)
 			}
@@ -665,11 +683,11 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		fmt.Fprint(tw, "]")
 	case reflect.Func:
 		funName := d.ApplyFormat(ColorLightTeal, getFunctionName(v))
-		fmt.Fprint(tw, funName)
 		if d.config.ShowMetaInformation {
-			funMeta := d.ApplyFormat(ColorDimGray, fmt.Sprintf(" "+SymbolMetaL+"func@%#x", v.Pointer()))
+			funMeta := d.ApplyFormat(ColorDimGray, fmt.Sprintf("|func@%#x| ", v.Pointer()))
 			fmt.Fprint(tw, funMeta)
 		}
+		fmt.Fprint(tw, funName)
 	case reflect.Chan:
 		if v.IsNil() {
 			fmt.Fprint(tw, d.ApplyFormat(ColorCoralRed, "<nil>"))
@@ -681,13 +699,11 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 			} else if chDir == "<-chan" {
 				symbol = d.ApplyFormat(ColorGreen, "🢃")
 			}
-
-			fmt.Fprintf(tw, "%s %s%s", symbol, d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorLightTeal, fmt.Sprintf("%#x", v.Pointer())))
 			if d.config.ShowMetaInformation {
-				bufferStr := d.ApplyFormat(ColorDimGray, fmt.Sprintf(" "+SymbolMetaL+"|B:%d|", v.Cap()))
-				fmt.Fprint(tw, bufferStr)
+				chBuffStr := d.ApplyFormat(ColorDimGray, fmt.Sprintf("|B:%d| ", v.Cap()))
+				fmt.Fprint(tw, chBuffStr)
 			}
-
+			fmt.Fprintf(tw, "%s %s%s", symbol, d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorLightTeal, fmt.Sprintf("%#x", v.Pointer())))
 		}
 	default:
 		// Should be unreachable - all reflect.Kind cases are handled
@@ -703,18 +719,18 @@ func (d *Dumper) renderTypeMethods(tw *tabwriter.Writer, t reflect.Type, level i
 	for _, m := range findTypeMethods(t) {
 		// print visibility and symbol name
 		symbol := d.ApplyFormat(ColorDarkTeal, "⦿ ")
-		methodType := " " + d.ApplyFormat(ColorDarkGray, m.Func.Type().String())
 		methodName := d.ApplyFormat(ColorMutedBlue, m.Name)
+		methodType := "	" + d.ApplyFormat(ColorDarkGray, m.Func.Type().String())
 		d.renderIndent(tw, level, symbol+methodName+methodType)
 		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, " "+SymbolMetaL+"|Method|"))
+			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, " "+SymbolMetaL+"(Method)"))
 		}
 		fmt.Fprintln(tw)
 	}
 }
 
 // asStringer checks if the value implements fmt.Stringer and returns its string representation.
-func (d *Dumper) asStringer(v reflect.Value) string {
+func (d *Dumper) asStringerInterface(v reflect.Value) string {
 	val := v
 	if !val.CanInterface() {
 		val = forceExported(val)
@@ -727,6 +743,26 @@ func (d *Dumper) asStringer(v reflect.Value) string {
 			}
 			str := d.stringEscape(s.String())
 			str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorGoldenrod, `"`)
+			return str
+		}
+	}
+	return ""
+}
+
+// asErrorer checks if the value implements fmt.Stringer and returns its string representation.
+func (d *Dumper) asErrorInterface(v reflect.Value) string {
+	val := v
+	if !val.CanInterface() {
+		val = forceExported(val)
+	}
+	if val.CanInterface() {
+		if e, ok := val.Interface().(error); ok {
+			rv := reflect.ValueOf(e)
+			if rv.Kind() == reflect.Ptr && rv.IsNil() {
+				return d.ApplyFormat(ColorCoralRed, "<nil>")
+			}
+			str := d.stringEscape(e.Error())
+			str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorCoralRed, str) + d.ApplyFormat(ColorGoldenrod, `"`)
 			return str
 		}
 	}
@@ -793,7 +829,11 @@ func isSimpleValue(v reflect.Value) bool {
 	}
 
 	switch v.Kind() {
-	case reflect.Bool, reflect.Int, reflect.Int64, reflect.Uint, reflect.Uint64, reflect.Float64, reflect.String:
+	case reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64,
+		reflect.String:
 		return true
 	default:
 		return false
