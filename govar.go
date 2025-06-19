@@ -371,6 +371,15 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 	}
 }
 
+func (d *Dumper) isSimpleMapKey(k reflect.Value) bool {
+	// If simple or complex num or if estimated length is small, map key is "simple"
+	if isSimpleValue(k) || k.Kind() == reflect.Complex64 || k.Kind() == reflect.Complex128 {
+		return true
+	} else {
+		return d.estimatedInlineLength(k) <= d.config.MaxInlineLength
+	}
+}
+
 // Returns a string representation for a value type (and handle any type)
 func (d *Dumper) formatType(v reflect.Value, isInCollection bool) string {
 	if !d.config.ShowTypes {
@@ -400,6 +409,23 @@ func (d *Dumper) formatType(v reflect.Value, isInCollection bool) string {
 	// Modernize the 'interface {}' to 'any'
 	formattedType = strings.ReplaceAll(formattedType, "interface {}", "any")
 	return formattedType
+}
+
+func (d *Dumper) formatMapKeyAsIndex(k reflect.Value) string {
+	if d.isSimpleMapKey(k) {
+		switch k.Kind() {
+		case reflect.String:
+			keyFormatted := strconv.Quote(k.Interface().(string))
+			return keyFormatted
+		default:
+			keyFormatted := fmt.Sprintf("%v", k.Interface())
+			return keyFormatted
+		}
+	}
+	// TODO: should be summarizeKey(k)
+	keyFormatted := fmt.Sprintf("%v", k.Interface())
+	return keyFormatted
+
 }
 
 // renderHeader prints the header for the dump output, including the file and line number.
@@ -462,7 +488,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 	// check for std fmt.Stringer interface representation
 	if str := d.asStringerInterface(v); str != "" {
 		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, "⧉ Stringer"+SymbolMetaR+" "))
+			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, "|⧉ Stringer| "))
 		}
 		fmt.Fprint(tw, str)
 		return
@@ -471,7 +497,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 	// check for std error interface representation
 	if str := d.asErrorInterface(v); str != "" {
 		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, "⧉ error"+SymbolMetaR+" "))
+			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, "|⧉ error| "))
 		}
 		fmt.Fprint(tw, str)
 		return
@@ -551,7 +577,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 			// Try the stringer interface on this struct field first
 			if str := d.asStringerInterface(fieldVal); str != "" {
 				if d.config.ShowMetaInformation {
-					fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, "⧉ Stringer"+SymbolMetaR+" "))
+					fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, "|⧉ Stringer| "))
 				}
 				fmt.Fprint(tw, str)
 			} else {
@@ -599,19 +625,20 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 				break
 			}
 
-			keyStr := fmt.Sprintf("%v", key.Interface())
+			// keyStr := fmt.Sprintf("%v", key.Interface())
+			keyStr := d.formatMapKeyAsIndex(key)
 
 			// print element type signature
 			formattedType := d.formatType(v.MapIndex(key), true)
 
 			if !d.shouldRenderInline(v) {
 				// indent, render key and type
-				d.renderIndent(tw, level+1, fmt.Sprintf("%s %s	=> ", d.ApplyFormat(ColorViolet, keyStr), formattedType))
+				d.renderIndent(tw, level+1, fmt.Sprintf("%s%s	=> ", d.ApplyFormat(ColorViolet, keyStr), formattedType))
 				// recursively print the array value itself, increase indent level
 				d.renderValue(tw, v.MapIndex(key), level+1, visited)
 			} else {
 				// do not indent, render key and type
-				fmt.Fprintf(tw, "%s %s	=> ", d.ApplyFormat(ColorViolet, keyStr), formattedType)
+				fmt.Fprintf(tw, "%s%s	=> ", d.ApplyFormat(ColorViolet, keyStr), formattedType)
 				// recursively print the array value itself, same indent level
 				d.renderValue(tw, v.MapIndex(key), level, visited)
 			}
@@ -723,7 +750,7 @@ func (d *Dumper) renderTypeMethods(tw *tabwriter.Writer, t reflect.Type, level i
 		methodType := "	" + d.ApplyFormat(ColorDarkGray, m.Func.Type().String())
 		d.renderIndent(tw, level, symbol+methodName+methodType)
 		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, " "+SymbolMetaL+"(Method)"))
+			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, " |Method|"))
 		}
 		fmt.Fprintln(tw)
 	}
@@ -832,6 +859,7 @@ func isSimpleValue(v reflect.Value) bool {
 	case reflect.Bool,
 		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
 		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Uintptr,
 		reflect.Float32, reflect.Float64,
 		reflect.String:
 		return true
