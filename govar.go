@@ -19,66 +19,77 @@ const (
 	Version     = "0.4.0"
 )
 
-// (OLD) ANSI Colors
 const (
-	ColorDarkGray  = "\033[38;5;238m"
-	ColorGray      = "\033[38;5;245m"
-	ColorLightGray = "\033[38;5;250m"
-	ColorWhite     = "\033[38;5;15m"
+	SymbolArrL    = "["
+	SymbolArrR    = "]"
+	SymbolStructL = "{"
+	SymbolStructR = "}"
+	SymbolMetaL   = "≪" // ⟪, ‹, ⟦
+	SymbolMetaR   = "≫" // ⟫, ›, ⟧
+)
 
-	ColorMutedRed = "\033[38;5;131m"
-	ColorRed      = "\033[38;5;160m"
-	ColorLightRed = "\033[38;5;196m"
+// ANSI color codes inspired by Go brand colors
+const (
+	ColorPaleGray  = "\033[38;5;250m" // #B0BEC5
+	ColorSlateGray = "\033[38;5;245m" // #A0A8B3
+	ColorDimGray   = "\033[38;5;240m" // #5F6368
+	ColorDarkGray  = "\033[38;5;238m" // #444444
+	ColorCharcoal  = "\033[38;5;235m" // #262626
 
-	ColorOrange = "\033[38;5;208m"
-	ColorYellow = "\033[38;5;226m"
-	ColorGold   = "\033[38;5;178m"
+	ColorLime       = "\033[38;5;113m" // #80ff80
+	ColorSkyBlue    = "\033[38;5;117m" // #55C1E7
+	ColorMutedBlue  = "\033[38;5;110m" // #73B3D5
+	ColorLightTeal  = "\033[38;5;73m"  // #46A4B0
+	ColorBrightCyan = "\033[38;5;51m"  // #00D5EF
+	ColorGoBlue     = "\033[38;5;33m"  // #00ADD8
+	ColorDarkTeal   = "\033[38;5;30m"  // #005F5F
+	ColorDarkGoBlue = "\033[38;5;24m"  // #005F87
 
-	ColorGreen = "\033[38;5;34m"
-	ColorLime  = "\033[38;5;113m"
-	ColorTeal  = "\033[38;5;37m"
-	ColorAqua  = "\033[38;5;86m"
+	ColorSeafoamGreen = "\033[38;5;79m" // #60DBD4
+	ColorGreen        = "\033[38;5;34m" // #00af00
 
-	ColorMutedBlue = "\033[38;5;25m"
-	ColorSkyBlue   = "\033[38;5;117m"
-	ColorBlue      = "\033[38;5;33m"
-	ColorCyan      = "\033[38;5;51m"
+	ColorGoldenrod   = "\033[38;5;220m" // #FFD54F
+	ColorCoralRed    = "\033[38;5;203m" // #F46C5E
+	ColorRed         = "\033[38;5;160m" // #d70000
+	ColorDarkRed     = "\033[38;5;131m" // #aa4444
+	ColorGopherBrown = "\033[38;5;95m"  // #85696D
 
-	ColorViolet  = "\033[38;5;135m"
-	ColorPink    = "\033[38;5;218m"
-	ColorMagenta = "\033[38;5;201m"
+	ColorViolet  = "\033[38;5;135m" // #af5fff
+	ColorMagenta = "\033[38;5;201m" // #ff5fff
+	ColorPink    = "\033[38;5;218m" // #ffafd7
 
 	ColorReset = "\033[0m"
 )
 
 // (OLD) ColorPaletteHTML maps color codes to HTML colors.
 var ColorPaletteHTML = map[string]string{
-	ColorDarkGray:  "#444444",
-	ColorGray:      "#8a8a8a",
-	ColorLightGray: "#bcbcbc",
-	ColorWhite:     "#fff",
+	ColorPaleGray:  "#B0BEC5", // #B0BEC5
+	ColorSlateGray: "#A0A8B3", // #A0A8B3
+	ColorDimGray:   "#5F6368", // #5F6368
+	ColorDarkGray:  "#444444", // #444444
+	ColorCharcoal:  "#262626", // #262626
 
-	ColorMutedRed: "#aa4444",
-	ColorRed:      "#d70000",
-	ColorLightRed: "#ff2b2b",
+	ColorLime:       "#80ff80", // #80ff80
+	ColorSkyBlue:    "#55C1E7", // #55C1E7
+	ColorMutedBlue:  "#73B3D5", // #73B3D5
+	ColorLightTeal:  "#46A4B0", // #46A4B0
+	ColorBrightCyan: "#00D5EF", // #00D5EF
+	ColorGoBlue:     "#00ADD8", // #00ADD8
+	ColorDarkTeal:   "#005F5F", // #005F5F
+	ColorDarkGoBlue: "#005F87", // #005F87
 
-	ColorOrange: "#ff8700",
-	ColorYellow: "#ffff00",
-	ColorGold:   "#d7af5f",
+	ColorSeafoamGreen: "#60DBD4", // #60DBD4
+	ColorGreen:        "#00af00", // #00af00
 
-	ColorGreen: "#00af00",
-	ColorLime:  "#80ff80",
-	ColorTeal:  "#00afaf",
-	ColorAqua:  "#5fd7af",
+	ColorGoldenrod:   "#FFD54F", // #FFD54F
+	ColorCoralRed:    "#F46C5E", // #F46C5E
+	ColorRed:         "#d70000", // #d70000
+	ColorDarkRed:     "#aa4444", // #aa4444
+	ColorGopherBrown: "#85696D", // #85696D
 
-	ColorMutedBlue: "#336699",
-	ColorSkyBlue:   "#87d7ff",
-	ColorBlue:      "#0087ff",
-	ColorCyan:      "#00ffff",
-
-	ColorViolet:  "#af5fff",
-	ColorPink:    "#ffafd7",
-	ColorMagenta: "#ff5fff",
+	ColorViolet:  "#af5fff", // #af5fff
+	ColorMagenta: "#ff5fff", // #ff5fff
+	ColorPink:    "#ffafd7", // #ffafd7
 }
 
 type Formatter interface {
@@ -109,11 +120,11 @@ type DumperConfig struct {
 	MaxItems            int
 	MaxStringLen        int
 	MaxInlineLength     int
+	ShowTypes           bool
 	UseColors           bool
 	TrackReferences     bool
 	HTMLtagToken        string
 	HTMLtagSection      string
-	ShowTypes           bool
 	EmbedTypeMethods    bool
 	ShowMetaInformation bool
 }
@@ -137,6 +148,7 @@ func Fdump(w io.Writer, values ...any) {
 		MaxItems:            100,
 		MaxStringLen:        10000,
 		MaxInlineLength:     80,
+		ShowTypes:           true,
 		UseColors:           true,
 		TrackReferences:     true,
 		HTMLtagToken:        "span",
@@ -156,6 +168,7 @@ func Die(values ...any) {
 		MaxItems:            100,
 		MaxStringLen:        10000,
 		MaxInlineLength:     80,
+		ShowTypes:           true,
 		UseColors:           true,
 		TrackReferences:     true,
 		HTMLtagToken:        "span",
@@ -175,6 +188,7 @@ func Dump(values ...any) {
 		MaxItems:            100,
 		MaxStringLen:        10000,
 		MaxInlineLength:     80,
+		ShowTypes:           true,
 		UseColors:           true,
 		TrackReferences:     true,
 		HTMLtagToken:        "span",
@@ -194,6 +208,7 @@ func SdumpHTML(values ...any) string {
 		MaxItems:            100,
 		MaxStringLen:        10000,
 		MaxInlineLength:     80,
+		ShowTypes:           true,
 		UseColors:           true,
 		TrackReferences:     true,
 		HTMLtagToken:        "span",
@@ -213,6 +228,7 @@ func Sdump(values ...any) string {
 		MaxItems:            100,
 		MaxStringLen:        10000,
 		MaxInlineLength:     80,
+		ShowTypes:           true,
 		UseColors:           true,
 		TrackReferences:     true,
 		HTMLtagToken:        "span",
@@ -284,7 +300,7 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 		runeCount := utf8.RuneCountInString(strVal)
 		length += runeCount + 2
 		if d.config.ShowMetaInformation {
-			meta := fmt.Sprintf(" [run=%d]", runeCount)
+			meta := fmt.Sprintf(" [R=%d]", runeCount)
 			length += len(meta)
 		}
 		return length
@@ -305,9 +321,9 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 		length += 2 // braces
 		if d.config.ShowMetaInformation {
 			if v.Kind() == reflect.Slice {
-				length += len(fmt.Sprintf("[len=%d cap=%d] ", v.Len(), v.Cap()))
+				length += len(fmt.Sprintf("[L=%d C=%d] ", v.Len(), v.Cap()))
 			} else {
-				length += len(fmt.Sprintf("[len=%d] ", v.Len()))
+				length += len(fmt.Sprintf("[L=%d] ", v.Len()))
 			}
 		}
 		for i := range v.Len() {
@@ -319,22 +335,23 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 		return length
 
 	case reflect.Map:
-		// TODO: should account for type lengths if ShowTypes is ON
+		// TODO: should account for type lengths only if ShowTypes is ON
 		length += 2 // braces
 		if d.config.ShowMetaInformation {
-			length += len(fmt.Sprintf("[len=%d] ", v.Len()))
+			length += len(fmt.Sprintf("[L=%d] ", v.Len()))
 		}
 		for i, key := range v.MapKeys() {
 			if i > 0 {
 				length += 2 // comma and space
 			}
 			val := v.MapIndex(key)
+			length += len(val.Type().String()) + 1                                    // type len + whitespace
 			length += d.estimatedInlineLength(key) + 4 + d.estimatedInlineLength(val) // key => val
 		}
 		return length
 
 	case reflect.Struct:
-		// TODO: should account for type lengths if ShowTypes is ON
+		// TODO: should account for type lengths only if ShowTypes is ON
 		length += 2 // braces
 		t := v.Type()
 		for i := range v.NumField() {
@@ -342,6 +359,7 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 				length += 2 // comma and space
 			}
 			name := t.Field(i).Name
+			length += len(v.Field(i).Type().String()) + 1                 // type len + whitespace
 			length += len(name) + 4 + d.estimatedInlineLength(v.Field(i)) // Name => val
 		}
 		return length
@@ -393,10 +411,10 @@ func (d *Dumper) renderHeader(out io.Writer) {
 		}
 	}
 
-	headerTitle := d.ApplyFormat(ColorOrange, "[>] "+govarFuncName)
-	headerLocation := d.ApplyFormat(ColorGray, fmt.Sprintf("  ←  %s:%d", relPath, line))
+	headerTitle := d.ApplyFormat(ColorSlateGray, "[>]") + " " + d.ApplyFormat(ColorGoBlue, govarFuncName)
+	headerLocation := d.ApplyFormat(ColorSlateGray, fmt.Sprintf("  ⟵  %s:%d", relPath, line))
 	header := headerTitle + headerLocation
-	fmt.Fprintln(out, d.ApplyFormat(ColorGray, header))
+	fmt.Fprintln(out, header)
 }
 
 // renderAllValues writes all the values to the tabwriter, handling references and indentation.
@@ -408,7 +426,7 @@ func (d *Dumper) renderAllValues(tw *tabwriter.Writer, vs ...any) {
 		rv = makeAddressable(rv)
 
 		// Render value's type signature
-		fmt.Fprint(tw, d.ApplyFormat(ColorGray, d.formatType(rv, false)))
+		fmt.Fprint(tw, d.ApplyFormat(ColorDarkGray, d.formatType(rv, false)))
 		fmt.Fprint(tw, " => ")
 		// Render the value itself
 		d.renderValue(tw, rv, 0, visited)
@@ -420,7 +438,7 @@ func (d *Dumper) renderAllValues(tw *tabwriter.Writer, vs ...any) {
 // renderValue recursively writes the value with indentation and handles references.
 func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, visited map[uintptr]bool) {
 	if level > d.config.MaxDepth {
-		fmt.Fprint(tw, d.ApplyFormat(ColorGray, "… (max depth reached)"))
+		fmt.Fprint(tw, d.ApplyFormat(ColorSlateGray, "… (max depth reached)"))
 		return
 	}
 	if !v.IsValid() {
@@ -429,14 +447,14 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 	}
 
 	if isNil(v) {
-		fmt.Fprint(tw, d.ApplyFormat(ColorMutedRed, "<nil>"))
+		fmt.Fprint(tw, d.ApplyFormat(ColorCoralRed, "<nil>"))
 		return
 	}
 
 	if str := d.asStringer(v); str != "" {
 		fmt.Fprint(tw, str)
 		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.ApplyFormat(ColorMutedBlue, " [⧉ fmt.Stringer]"))
+			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, " "+SymbolMetaL+"⧉ fmt.Stringer"))
 		}
 		return
 	}
@@ -448,7 +466,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		if v.CanAddr() {
 			ptr := v.Pointer()
 			if id, ok := d.referenceMap[ptr]; ok {
-				fmt.Fprintf(tw, d.ApplyFormat(ColorLightGray, "↩︎ &%d"), id)
+				fmt.Fprintf(tw, d.ApplyFormat(ColorSlateGray, "↩︎ &%d"), id)
 				return
 			} else {
 				d.referenceMap[ptr] = d.nextRefID
@@ -461,28 +479,28 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		// Continue with rendering the value that the interface contains
 		d.renderValue(tw, v.Elem(), level, visited)
 	case reflect.UnsafePointer:
-		fmt.Fprint(tw, d.ApplyFormat(ColorGray, fmt.Sprintf("unsafe.Pointer(%#x)", v.Pointer())))
+		fmt.Fprint(tw, d.ApplyFormat(ColorSlateGray, fmt.Sprintf("unsafe.Pointer(%#x)", v.Pointer())))
 	case reflect.Bool:
 		if v.Bool() {
-			fmt.Fprint(tw, d.ApplyFormat(ColorGreen, "true"))
+			fmt.Fprint(tw, d.ApplyFormat(ColorSeafoamGreen, "true"))
 		} else {
-			fmt.Fprint(tw, d.ApplyFormat(ColorLightRed, "false"))
+			fmt.Fprint(tw, d.ApplyFormat(ColorCoralRed, "false"))
 		}
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		fmt.Fprint(tw, d.ApplyFormat(ColorCyan, fmt.Sprint(v.Int())))
+		fmt.Fprint(tw, d.ApplyFormat(ColorSkyBlue, fmt.Sprint(v.Int())))
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		fmt.Fprint(tw, d.ApplyFormat(ColorCyan, fmt.Sprint(v.Uint())))
+		fmt.Fprint(tw, d.ApplyFormat(ColorSkyBlue, fmt.Sprint(v.Uint())))
 	case reflect.Float32, reflect.Float64:
-		fmt.Fprint(tw, d.ApplyFormat(ColorCyan, fmt.Sprintf("%f", v.Float())))
+		fmt.Fprint(tw, d.ApplyFormat(ColorSkyBlue, fmt.Sprintf("%f", v.Float())))
 	case reflect.Complex64, reflect.Complex128:
-		fmt.Fprint(tw, d.ApplyFormat(ColorCyan, fmt.Sprintf("%v", v.Complex())))
+		fmt.Fprint(tw, d.ApplyFormat(ColorSkyBlue, fmt.Sprintf("%v", v.Complex())))
 	case reflect.String:
 		strLen := utf8.RuneCountInString(v.String())
 		str := d.stringEscape(v.String())
-		str = d.ApplyFormat(ColorOrange, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorOrange, `"`)
+		str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorGoldenrod, `"`)
 		fmt.Fprint(tw, str)
 		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.ApplyFormat(ColorMutedBlue, fmt.Sprintf(" [run=%d]", strLen)))
+			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, fmt.Sprintf(" "+SymbolMetaL+"|R:%d|", strLen)))
 		}
 	case reflect.Struct:
 		t := v.Type()
@@ -499,12 +517,14 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 				symbol = "🞏 "
 				fieldVal = forceExported(fieldVal)
 			}
+			symbol = d.ApplyFormat(ColorDarkGoBlue, symbol)
+			fieldName := d.ApplyFormat(ColorLightTeal, field.Name)
 			if !d.shouldRenderInline(v) {
 				// print visibility and symbol name, with indent
-				d.renderIndent(tw, level+1, d.ApplyFormat(ColorOrange, symbol)+field.Name)
+				d.renderIndent(tw, level+1, symbol+fieldName)
 			} else {
 				// inline render of the field
-				fmt.Fprintf(tw, d.ApplyFormat(ColorOrange, symbol)+field.Name)
+				fmt.Fprintf(tw, symbol+fieldName)
 			}
 			// print field type signature
 			formattedType := d.formatType(fieldVal, false)
@@ -514,7 +534,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 			if str := d.asStringer(fieldVal); str != "" {
 				fmt.Fprint(tw, str)
 				if d.config.ShowMetaInformation {
-					fmt.Fprint(tw, d.ApplyFormat(ColorMutedBlue, " [⧉ fmt.Stringer]"))
+					fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, " "+SymbolMetaL+"⧉ fmt.Stringer"))
 				}
 			} else {
 				// or recursively render the field value itself
@@ -545,11 +565,11 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		fmt.Fprint(tw, "}")
 	case reflect.Map:
 		if d.config.ShowMetaInformation {
-			mapLen := fmt.Sprintf("[len=%d] ", v.Len())
-			fmt.Fprint(tw, d.ApplyFormat(ColorMutedBlue, mapLen))
+			mapLen := fmt.Sprintf("|%d|"+SymbolMetaR+" ", v.Len())
+			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, mapLen))
 		}
 
-		fmt.Fprint(tw, "{")
+		fmt.Fprint(tw, "[")
 		if !d.shouldRenderInline(v) {
 			fmt.Fprintln(tw)
 		}
@@ -557,9 +577,10 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		keys := v.MapKeys()
 		for i, key := range keys {
 			if i >= d.config.MaxItems {
-				d.renderIndent(tw, level+1, d.ApplyFormat(ColorGray, "… (truncated)"))
+				d.renderIndent(tw, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)"))
 				break
 			}
+
 			keyStr := fmt.Sprintf("%v", key.Interface())
 
 			// print element type signature
@@ -588,36 +609,42 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		if !d.shouldRenderInline(v) {
 			d.renderIndent(tw, level, "")
 		}
-		fmt.Fprint(tw, "}")
+		fmt.Fprint(tw, "]")
 	case reflect.Slice, reflect.Array:
 		if d.config.ShowMetaInformation {
 			var listLen string
 			if v.Kind() == reflect.Array {
-				listLen = fmt.Sprintf("[len=%d] ", v.Len())
+				listLen = fmt.Sprintf("|%d|"+SymbolMetaR+" ", v.Len())
 			} else {
-				listLen = fmt.Sprintf("[len=%d cap=%d] ", v.Len(), v.Cap())
+				if v.Len() == v.Cap() {
+					listLen = fmt.Sprintf("|%d|"+SymbolMetaR+" ", v.Len())
+				} else {
+					listLen = fmt.Sprintf("|L:%d C:%d|"+SymbolMetaR+" ", v.Len(), v.Cap())
+				}
+
 			}
-			fmt.Fprint(tw, d.ApplyFormat(ColorMutedBlue, listLen))
+			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, listLen))
 		}
-		fmt.Fprint(tw, "{")
+		fmt.Fprint(tw, "[")
 		if !d.shouldRenderInline(v) {
 			fmt.Fprintln(tw)
 		}
 		for i := range v.Len() {
 			if i >= d.config.MaxItems {
-				d.renderIndent(tw, level+1, d.ApplyFormat(ColorGray, "… (truncated)\n"))
+				d.renderIndent(tw, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)\n"))
 				break
 			}
 			// print element type signature
 			formattedType := d.formatType(v.Index(i), true)
+			indexSymbol := d.ApplyFormat(ColorDarkTeal, fmt.Sprintf("%d", i))
 			if !d.shouldRenderInline(v) {
 				// indent, render index (and type)
-				d.renderIndent(tw, level+1, fmt.Sprintf("%s %s => ", d.ApplyFormat(ColorCyan, fmt.Sprintf("%d", i)), formattedType))
+				d.renderIndent(tw, level+1, fmt.Sprintf("%s %s => ", indexSymbol, formattedType))
 				// recursively print the array value itself, increase indent level
 				d.renderValue(tw, v.Index(i), level+1, visited)
 			} else {
 				// do not indent, render index (and type)
-				fmt.Fprintf(tw, "%s %s => ", d.ApplyFormat(ColorCyan, fmt.Sprintf("%d", i)), formattedType)
+				fmt.Fprintf(tw, "%s %s => ", indexSymbol, formattedType)
 				// recursively print the array value itself, same indent level
 				d.renderValue(tw, v.Index(i), level, visited)
 			}
@@ -635,22 +662,29 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 			d.renderIndent(tw, level, "")
 		}
 
-		fmt.Fprint(tw, "}")
+		fmt.Fprint(tw, "]")
 	case reflect.Func:
-		funName := d.ApplyFormat(ColorBlue, getFunctionName(v))
+		funName := d.ApplyFormat(ColorLightTeal, getFunctionName(v))
 		fmt.Fprint(tw, funName)
 		if d.config.ShowMetaInformation {
-			funMeta := d.ApplyFormat(ColorMutedBlue, fmt.Sprintf(" [func@%#x]", v.Pointer()))
+			funMeta := d.ApplyFormat(ColorDimGray, fmt.Sprintf(" "+SymbolMetaL+"func@%#x", v.Pointer()))
 			fmt.Fprint(tw, funMeta)
 		}
 	case reflect.Chan:
 		if v.IsNil() {
-			fmt.Fprint(tw, d.ApplyFormat(ColorMutedRed, "<nil>"))
+			fmt.Fprint(tw, d.ApplyFormat(ColorCoralRed, "<nil>"))
 		} else {
+			symbol := d.ApplyFormat(ColorGoldenrod, "⮁") // ▲ 🠕 ⯭ ▼ ⯯ ▦
+			chDir := v.Type().ChanDir().String()
+			if chDir == "chan<-" {
+				symbol = d.ApplyFormat(ColorGoBlue, "🡹")
+			} else if chDir == "<-chan" {
+				symbol = d.ApplyFormat(ColorGreen, "🢃")
+			}
 
-			fmt.Fprintf(tw, "%s%s", d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorTeal, fmt.Sprintf("%#x", v.Pointer())))
+			fmt.Fprintf(tw, "%s %s%s", symbol, d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorLightTeal, fmt.Sprintf("%#x", v.Pointer())))
 			if d.config.ShowMetaInformation {
-				bufferStr := d.ApplyFormat(ColorMutedBlue, fmt.Sprintf(" [buf=%d]", v.Cap()))
+				bufferStr := d.ApplyFormat(ColorDimGray, fmt.Sprintf(" "+SymbolMetaL+"|B:%d|", v.Cap()))
 				fmt.Fprint(tw, bufferStr)
 			}
 
@@ -668,11 +702,12 @@ func (d *Dumper) renderIndent(tw *tabwriter.Writer, indentLevel int, text string
 func (d *Dumper) renderTypeMethods(tw *tabwriter.Writer, t reflect.Type, level int) {
 	for _, m := range findTypeMethods(t) {
 		// print visibility and symbol name
-		symbol := "⦿ "
-		methodType := " " + d.ApplyFormat(ColorGray, m.Func.Type().String())
-		d.renderIndent(tw, level, d.ApplyFormat(ColorOrange, symbol)+m.Name+methodType)
+		symbol := d.ApplyFormat(ColorDarkTeal, "⦿ ")
+		methodType := " " + d.ApplyFormat(ColorDarkGray, m.Func.Type().String())
+		methodName := d.ApplyFormat(ColorMutedBlue, m.Name)
+		d.renderIndent(tw, level, symbol+methodName+methodType)
 		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.ApplyFormat(ColorMutedBlue, " [Method]"))
+			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, " "+SymbolMetaL+"|Method|"))
 		}
 		fmt.Fprintln(tw)
 	}
@@ -688,10 +723,10 @@ func (d *Dumper) asStringer(v reflect.Value) string {
 		if s, ok := val.Interface().(fmt.Stringer); ok {
 			rv := reflect.ValueOf(s)
 			if rv.Kind() == reflect.Ptr && rv.IsNil() {
-				return d.ApplyFormat(ColorMutedRed, "<nil>")
+				return d.ApplyFormat(ColorCoralRed, "<nil>")
 			}
 			str := d.stringEscape(s.String())
-			str = d.ApplyFormat(ColorOrange, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorOrange, `"`)
+			str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorGoldenrod, `"`)
 			return str
 		}
 	}
