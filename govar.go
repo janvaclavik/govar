@@ -412,20 +412,34 @@ func (d *Dumper) formatType(v reflect.Value, isInCollection bool) string {
 }
 
 func (d *Dumper) formatMapKeyAsIndex(k reflect.Value) string {
+	var keyFormatted string
 	if d.isSimpleMapKey(k) {
 		switch k.Kind() {
 		case reflect.String:
-			keyFormatted := strconv.Quote(k.Interface().(string))
-			return keyFormatted
+			keyFormatted = strconv.Quote(k.Interface().(string))
+		case reflect.Interface:
+			if k.Type().NumMethod() == 0 {
+				// If the map key is was an "any" type, but a really a string underneath, format is as a string
+				if str, ok := k.Interface().(string); ok {
+					keyFormatted = strconv.Quote(str)
+				} else {
+					// Was any interface, but not a string...
+					keyFormatted = fmt.Sprintf("%v", k.Interface())
+				}
+			} else {
+				// Other kinds of interfaces
+				keyFormatted = fmt.Sprintf("%v", k.Interface())
+			}
 		default:
-			keyFormatted := fmt.Sprintf("%v", k.Interface())
-			return keyFormatted
+			// Any other types
+			keyFormatted = fmt.Sprintf("%v", k.Interface())
 		}
+	} else {
+		// TODO: Here we should use a new summarizeKey(k) for complex, structured map keys
+		keyFormatted = fmt.Sprintf("%v", k.Interface())
 	}
-	// TODO: should be summarizeKey(k)
-	keyFormatted := fmt.Sprintf("%v", k.Interface())
-	return keyFormatted
 
+	return keyFormatted
 }
 
 // renderHeader prints the header for the dump output, including the file and line number.
