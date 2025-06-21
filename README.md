@@ -81,6 +81,7 @@ MIT © [janvaclavik](https://github.com/janvaclavik)
 - [goforj/godump](https://github.com/goforj/godump)
 - [nette/tracy](https://github.com/nette/tracy) (has dump() for *PHP*)
 - [laravel/laravel](https://github.com/laravel/laravel) (has dump() for *PHP*)
+- [pprint](https://docs.python.org/3/library/pprint.html) (pprint — Data pretty printer for *Python*)
 
 ## 📇 Author
 

@@ -1,6 +1,7 @@
 package govar
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io"
 	"os"
@@ -16,7 +17,7 @@ import (
 
 const (
 	PackageName = "govar"
-	Version     = "0.4.0"
+	Version     = "0.5.0"
 )
 
 const (
@@ -456,7 +457,11 @@ func (d *Dumper) renderHeader(out io.Writer) {
 		}
 	}
 
-	headerTitle := d.ApplyFormat(ColorSlateGray, "[>]") + " " + d.ApplyFormat(ColorGoBlue, govarFuncName)
+	names := strings.Split(govarFuncName, ".")
+	colorizedPkg := strings.Replace(names[0], "go", d.ApplyFormat(ColorDarkGoBlue, "go"), 1)
+	colorizedPkg = strings.Replace(colorizedPkg, "var", d.ApplyFormat(ColorGoBlue, "var."), 1)
+	colorizedFunc := d.ApplyFormat(ColorGoBlue, names[1])
+	headerTitle := d.ApplyFormat(ColorGoBlue, "[>]") + " " + colorizedPkg + colorizedFunc
 	headerLocation := d.ApplyFormat(ColorSlateGray, fmt.Sprintf("  ⟵  %s:%d", relPath, line))
 	header := headerTitle + headerLocation
 	fmt.Fprintln(out, header)
@@ -688,31 +693,72 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		if !d.shouldRenderInline(v) {
 			fmt.Fprintln(tw)
 		}
-		for i := range v.Len() {
-			if i >= d.config.MaxItems {
-				d.renderIndent(tw, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)\n"))
-				break
-			}
-			// print element type signature
-			formattedType := d.formatType(v.Index(i), true)
-			indexSymbol := d.ApplyFormat(ColorDarkTeal, fmt.Sprintf("%d", i))
-			if !d.shouldRenderInline(v) {
-				// indent, render index (and type)
-				d.renderIndent(tw, level+1, fmt.Sprintf("%s%s => ", indexSymbol, formattedType))
-				// recursively print the array value itself, increase indent level
-				d.renderValue(tw, v.Index(i), level+1, visited)
-			} else {
-				// do not indent, render index (and type)
-				fmt.Fprintf(tw, "%s%s => ", indexSymbol, formattedType)
-				// recursively print the array value itself, same indent level
-				d.renderValue(tw, v.Index(i), level, visited)
+
+		if v.Type().Elem().Kind() == reflect.Uint8 {
+			// using std package hex
+
+			// Safe fallback: Manual conversion to addressable array (cause v.Bytes() might not work)
+			content := toAddressableByteSlice(v)
+			// fmt.Printf("%s", hex.Dump(content))
+			lines := strings.Split(hex.Dump(content), "\n")
+
+			for _, line := range lines {
+				if line == "" {
+					continue
+				}
+				// Example line:
+				// 00000000  48 65 6c 6c 6f 2c 20 57  6f 72 6c 64 21 0a 00 ff  |Hello, World!...|
+
+				// Split into three main parts:
+				if len(line) < 10 {
+					fmt.Println(line) // fallback
+					continue
+				}
+
+				offsetPart := line[:10]
+				hexPart := line[10:58] // includes 2 spaces between 8-byte blocks
+				asciiPart := ""
+				if idx := strings.Index(line, "  |"); idx != -1 {
+					asciiPart = line[idx:]
+				}
+				// Print indent
+				d.renderIndent(tw, level+1, "")
+				// Print with color
+				fmt.Fprintf(tw, "%s%s%s\n",
+					d.ApplyFormat(ColorDarkTeal, offsetPart),
+					d.ApplyFormat(ColorSkyBlue, hexPart),
+					d.ApplyFormat(ColorLime, asciiPart),
+				)
 			}
 
-			if !d.shouldRenderInline(v) {
-				fmt.Fprintln(tw)
-			} else {
-				if i != v.Len()-1 {
-					fmt.Fprint(tw, ", ")
+		} else {
+
+			for i := range v.Len() {
+				if i >= d.config.MaxItems {
+					d.renderIndent(tw, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)\n"))
+					break
+				}
+				// print element type signature
+				formattedType := d.formatType(v.Index(i), true)
+				indexSymbol := d.ApplyFormat(ColorDarkTeal, fmt.Sprintf("%d", i))
+				if !d.shouldRenderInline(v) {
+					// indent, render index (and type)
+					d.renderIndent(tw, level+1, fmt.Sprintf("%s%s => ", indexSymbol, formattedType))
+					// recursively print the array value itself, increase indent level
+					d.renderValue(tw, v.Index(i), level+1, visited)
+				} else {
+					// do not indent, render index (and type)
+					fmt.Fprintf(tw, "%s%s => ", indexSymbol, formattedType)
+					// recursively print the array value itself, same indent level
+					d.renderValue(tw, v.Index(i), level, visited)
+				}
+
+				if !d.shouldRenderInline(v) {
+					fmt.Fprintln(tw)
+				} else {
+					if i != v.Len()-1 {
+						fmt.Fprint(tw, ", ")
+					}
 				}
 			}
 		}
@@ -747,6 +793,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 			fmt.Fprintf(tw, "%s %s%s", symbol, d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorLightTeal, fmt.Sprintf("%#x", v.Pointer())))
 		}
 	default:
+		fmt.Fprintln(tw, "[WARNING] govar: unknown reflect.Kind, rendering not implemented")
 		// Should be unreachable - all reflect.Kind cases are handled
 	}
 }
@@ -993,4 +1040,20 @@ func makeAddressable(v reflect.Value) reflect.Value {
 	}
 
 	return v
+}
+
+// toAddressableByteSlice is a safe fallback helper for
+// creating an addressable copy of a potentialy unaddressable array
+// Parameters:
+//   - v reflect.Value
+//
+// Returns:
+//   - []byte
+func toAddressableByteSlice(v reflect.Value) []byte {
+	// Allocate and copy
+	out := make([]byte, v.Len())
+	for i := range v.Len() {
+		out[i] = uint8(v.Index(i).Uint())
+	}
+	return out
 }
