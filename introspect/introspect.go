@@ -3,10 +3,92 @@ package introspect
 import (
 	"fmt"
 	"go/types"
+	"slices"
 	"strings"
 
 	"golang.org/x/tools/go/packages"
 )
+
+func isConcreteNamedType(obj types.Object) bool {
+	// Must be a type declaration
+	typeName, ok := obj.(*types.TypeName)
+	if !ok {
+		return false
+	}
+
+	// Get the actual type info
+	named, ok := typeName.Type().(*types.Named)
+	if !ok {
+		return false
+	}
+
+	// Check if the underlying type is NOT an interface
+	_, isInterface := named.Underlying().(*types.Interface)
+	return !isInterface
+}
+
+func FindImplementors(interfaceFullName string) ([]string, error) {
+	// 1. Parse "pkgpath.InterfaceName"
+	typePkgPath, typeName, err := splitTypeName(interfaceFullName)
+	if err != nil {
+		return nil, err
+	}
+
+	// 2. Load all packages
+	cfg := &packages.Config{Mode: packages.LoadTypes | packages.LoadSyntax | packages.NeedDeps}
+	// pkgs, err := packages.Load(cfg, "./...")
+	pkgs, err := packages.Load(cfg, "all")
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Locate the target interface object
+	var targetIface *types.Interface
+	for _, pkg := range pkgs {
+		if pkg.PkgPath != typePkgPath {
+			continue
+		}
+		obj := pkg.Types.Scope().Lookup(typeName)
+		if obj == nil {
+			continue
+		}
+		iface, ok := obj.Type().Underlying().(*types.Interface)
+		if ok {
+			targetIface = iface
+			break
+		}
+	}
+
+	if targetIface == nil {
+		return nil, fmt.Errorf("interface not found: %s", interfaceFullName)
+	}
+
+	// 4. Iterate over all named types and check if they implement the interface
+	var result []string
+	for _, pkg := range pkgs {
+		scope := pkg.Types.Scope()
+		for _, name := range scope.Names() {
+			obj := scope.Lookup(name)
+			if obj == nil {
+				continue
+			}
+
+			named, ok := obj.Type().(*types.Named)
+			if !ok || !isConcreteNamedType(obj) {
+				continue
+			}
+
+			// Check both T and *T
+			if types.Implements(named, targetIface) || types.Implements(types.NewPointer(named), targetIface) {
+				result = append(result, fmt.Sprintf("%s.%s", pkg.PkgPath, obj.Name()))
+			}
+		}
+	}
+
+	slices.Sort(result)
+
+	return result, nil
+}
 
 // FindInterfaces finds interfaces in the current project that the given type implements.
 func FindInterfaces(typeFullName string) ([]string, error) {
@@ -109,6 +191,8 @@ func findInterfaces(typeFullName string, includeStd bool) ([]string, error) {
 			}
 		}
 	}
+
+	slices.Sort(implementedInterfaces)
 
 	return implementedInterfaces, nil
 }
