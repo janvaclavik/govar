@@ -43,17 +43,29 @@ import (
 )
 
 func main() {
-	// Dump straight to stdout
+	// Dump straight to stdout (with colors ON, type info ON, meta-hints ON)
 	govar.Dump(someVarToInspect1, someVarToInspect2, ...)
 
-	// Dump into a string
+	// Dump straight to stdout, values only (with colors OFF, type info OFF, meta-hints OFF)
+	govar.DumpValues(someVarToInspect1, someVarToInspect2, ...)
+
+	// Dump into a string (with colors ON, type info ON, meta-hints ON)
 	outputStr := govar.Sdump(someVarToInspect1, someVarToInspect2, ...)
 
-	// Write to any io.Writer (e.g. file, buffer, logger)
+	// Dump into a string  (with colors OFF, type info OFF, meta-hints OFF)
+	outputStr2 := govar.SdumpValues(someVarToInspect1, someVarToInspect2, ...)
+
+	// Write to any io.Writer (with colors ON, type info ON, meta-hints ON)
 	govar.Fdump(someIOWriter, someVarToInspect1, someVarToInspect2, ...)
 
-	// HTML for web output inside a <pre> block
+	// Write to any io.Writer (e.g. file, buffer, logger), values only (with colors OFF, type info OFF, meta-hints OFF)
+	govar.FdumpValues(someIOWriter, someVarToInspect1, someVarToInspect2, ...)
+
+	// HTML for web output inside a <pre> block (with colors ON, type info ON, meta-hints ON)
 	html := govar.HTMLdump(someVarToInspect1, someVarToInspect2, ...)
+
+	// HTML for web output inside a <pre> block, values only (with colors OFF, type info OFF, meta-hints OFF)
+	html2 := govar.HTMLdumpValues(someVarToInspect1, someVarToInspect2, ...)
 
 	// Dump to stdout and die (exit the program right after that)
 	govar.Die(someVarToInspect1, someVarToInspect2, ...)
