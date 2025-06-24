@@ -33,7 +33,7 @@ There are a few of these tools already, but whenever I used them, I always found
 go get github.com/janvaclavik/govar
 ```
 
-## 🚀 Usage
+## 🚀 Usage (dumper)
 
 ```go
 package main
@@ -91,6 +91,31 @@ func main() {
 	// (must be a full type name: github.com/some_repo/some_pkg/<some_subpkg/>.MyType)
 	sliceOfInterfaces := introspect.FindInterfacesStd("github.com/myrepo/mypkg/main.MyType")
 
+}
+```
+
+## 🚀 Usage (introspect)
+
+```go
+package main
+
+import (
+	"github.com/janvaclavik/govar/introspect"
+)
+
+func main() {
+	// Returns a sorted slice of types in your codebase that implement a given interface
+	// (must be a full interface name: github.com/some_repo/some_pkg/<some_subpkg/>.SomeInterface)
+	// (or fmt.Stringer, io.Reader, ...)
+	sliceOfTypes := introspect.FindImplementors("github.com/myrepo/mypkg/main.SomeInterface1")
+
+	// Returns a slice of interfaces in the project codebase that are implemented by a given type
+	// (must be a full type name: github.com/some_repo/some_pkg/<some_subpkg/>.MyType)
+	sliceOfInterfaces := introspect.FindInterfaces("github.com/myrepo/mypkg/main.MyType")
+
+	// Returns a slice of interfaces in Go std lib that are implemented by a given type
+	// (must be a full type name: github.com/some_repo/some_pkg/<some_subpkg/>.MyType)
+	sliceOfInterfaces := introspect.FindInterfacesStd("github.com/myrepo/mypkg/main.MyType")
 }
 ```
 
