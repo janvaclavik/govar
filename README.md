@@ -1,39 +1,49 @@
 # govar
 
-`govar` is a handy Go object inspector and variable dumper. It provides a well-arranged, pretty-printed peeks into selected constants and variables in your program. You can also use it as a friendly assistant when learning about Go data types, structures and interface. `govar` has no external dependencies and is go-routine friendly! It focuses on:
+`govar` is a handy Go object inspector and variable dumper. It gives you **styled, readable, and insightful peeks** into Go variables, structs, functions, slices, maps — you name it. Perfect for debugging, learning, or writing better tools.
 
-- **Readable, styled output** ( *stdout* | *string* | *io.Writer* | *HTML* )
-- **Complete type and value information for any constant or variable**, including structured data and functions
-- **Handy helper tools** for discovering and inspecting Go types and interfaces in current codebase
+- 🎯 **No dependencies**
+- 🧵 **Goroutine safe**
+- 🎨 **Colorful ANSI or HTML output**
+- 🛠️ **Customizable formatting**
+- 🔍 **Type & interface introspection tools**
 
-Whether you're debugging, documenting, learning or building dev tools — `govar` makes Go data easier to understand and explore.
+Whether you're debugging, documenting, or just staring into the void of your own data structures — `govar` is here to make sense of it all.
 
-## ❓ OK, but why should I pick this dumper?
+---
 
-There are a few of these tools already, but whenever I used them, I always found myself missing some important feature. There is a feature list down below, so go check it out (and for more on this, you can check the [comparison with other tools](https://github.com/janvaclavik/govar#comparison) section). The aim of `govar` is to be useful for inspection, studying and also testing purposes.
+## 🤔 Why use `govar`?
 
-## ✨ Features
+Because `fmt.Printf("%+v", x)` is fine until it isn't.
 
-- 📦 Pretty-print any Go value (supporting structured/nested types, pointers, arrays, slices, maps, funcs, interfaces, channels, etc.)
-- ✅ time.Time (nicely formatted)
-- 🧠 Struct field inspection with visibility markers (`+`, `-`)
-- 🧠 Variadic function param signature
-- 🧠 Displays size and capacity of arrays, slices and maps
-- 🪄 Control character escaping (`\n`, `\t`, etc.)
-- 🎨 ANSI color or HTML output (or even plain, uncolored output)
-- 🔄 Cycle-safe reference tracking
-- 🧠 Smart function signature rendering: `func(string, context.Context) error`
-- 🎨 Optional HTML output with structured and styled formatting
-- 🔎 Discover all types in your project that implement a given interface
-- ⚙️ Simple API and clean defaults for drop-in debugging or custom tooling
+Most Go dumpers either stop at the surface or produce unreadable blobs. `govar` goes deep — printing **structured values**, **types**, **method sets**, and even **byte slice hexdumps** in a way that's actually *pleasant to read*.
 
-## 🚀 Getting Started
+And unlike some packages, `govar` lets you **poke around in your own project** — finding out which types implement interfaces, or which interfaces your types satisfy.
+
+---
+
+
+## ✨ Features at a Glance
+
+| Feature | Description |
+|--------|-------------|
+| 📦 Pretty‑prints any Go value | Supports nested structs, pointers, maps, funcs, channels, etc. |
+| 🔎 Type + kind info | Includes `reflect.Type`, method sets, type visibility |
+| 🎨 Colorful output | ANSI terminal colors or styled HTML |
+| 🧠 Smart struct field markers | `⯀` for exported, `🞏` for unexported |
+| 🕳️ Cycle detection | Handles circular refs & shared pointers |
+| 🧾 Hex dump | Nicely formatted hexdump for `[]byte` |
+| 📐 Size & cap info | Shows lengths and capacities |
+| 🧩 Interface discovery | Use `who` to introspect your codebase types & interfaces |
+| 🐛 Drop-in API | Just import & `govar.Dump(myThing)` |
+
+## 🚀 Install
 
 ```bash
 go get github.com/janvaclavik/govar
 ```
 
-## 🚀 Usage (dumper)
+## 🛠 Quickstart (dumper)
 
 ```go
 package main
@@ -43,67 +53,98 @@ import (
 )
 
 func main() {
-	// Dump straight to stdout
-	// (with colors ON, type info ON, meta-hints ON)
+	// Dump to stdout, with types, meta, and colors
 	govar.Dump(someVarToInspect1, someVarToInspect2, ...)
 
-	// Dump straight to stdout, values only
-	// (with colors OFF, type info OFF, meta-hints OFF)
+	// Dump values only (colored, but no extras)
 	govar.DumpValues(someVarToInspect1, someVarToInspect2, ...)
 
-	// Dump into a string
-	// (with colors ON, type info ON, meta-hints ON)
-	outputStr := govar.Sdump(someVarToInspect1, someVarToInspect2, ...)
+	// Dump to string, with types, meta, and colors
+	str := govar.Sdump(someVarToInspect1, someVarToInspect2, ...)
 
-	// Dump into a string
-	// (with colors OFF, type info OFF, meta-hints OFF)
-	outputStr2 := govar.SdumpValues(someVarToInspect1, someVarToInspect2, ...)
+	// Dump to string, values only (colored, but no extras)
+	plain := govar.SdumpValues(someVarToInspect1, someVarToInspect2, ...)
 
-	// Write to any io.Writer
-	// (with colors ON, type info ON, meta-hints ON)
+	// Dump to io.Writer (e.g. file, buffer), with types, meta, and colors
 	govar.Fdump(someIOWriter, someVarToInspect1, someVarToInspect2, ...)
 
-	// Write to any io.Writer, values only
-	// (with colors OFF, type info OFF, meta-hints OFF)
+	// Dump to io.Writer, values only (colored, but no extras)
 	govar.FdumpValues(someIOWriter, someVarToInspect1, someVarToInspect2, ...)
 
-	// HTML for web output inside a <pre> block
-	// (with colors ON, type info ON, meta-hints ON)
+	// Dump to HTML string, with types, meta, and colors
 	html := govar.HTMLdump(someVarToInspect1, someVarToInspect2, ...)
 
-	// HTML output inside a <pre> block, values only
-	// (with colors OFF, type info OFF, meta-hints OFF)
-	html2 := govar.HTMLdumpValues(someVarToInspect1, someVarToInspect2, ...)
+	// Dump to HTML string, values only (colored, but no extras)
+	htmlPlain := govar.HTMLdumpValues(someVarToInspect1, someVarToInspect2, ...)
 
-	// Dump to stdout and die (exit the program right after that)
+	// Dump and terminate the program (great for debug kills)
 	govar.Die(someVarToInspect1, someVarToInspect2, ...)
 }
 ```
 
-## 🚀 Usage (introspect)
+## ⚙️ Custom Dumper Configuration
+Need more control over what and how things are printed? Use govar.Dumper directly.
+```go
+import (
+	"github.com/janvaclavik/govar"
+)
+
+func main() {
+	// Create a custom dumper with your own settings
+	myCfg := DumperConfig{
+		IndentWidth:         3,
+		MaxDepth:            15,
+		MaxItems:            100,
+		MaxStringLen:        10000,
+		MaxInlineLength:     80,
+		ShowTypes:           true,
+		UseColors:           true,
+		TrackReferences:     true,
+		HTMLtagToken:        "span",
+		HTMLtagSection:      "pre",
+		EmbedTypeMethods:    true,
+		ShowMetaInformation: true,
+		ShowHexdump:         true,
+	}
+
+	d := NewDumper(myCfg)
+
+	// Now you Dump your data with full control
+	d.Dump(myData1, myData2)
+	d.Fdump(someIOWriter, myData1, myData2)
+	s := d.Sdump(myData1, myData2)
+	h := d.SdumpHTML(myData1, myData2)
+}
+```
+
+## 🔍 Introspection Helpers
 
 ```go
 package main
 
 import (
-	"github.com/janvaclavik/govar/introspect"
+	"github.com/janvaclavik/govar/who"
 )
 
 func main() {
-	// Returns a sorted slice of types in your codebase that implement a given interface
-	// (must be a full interface name: github.com/some_repo/some_pkg/<some_subpkg/>.SomeInterface)
-	// (or fmt.Stringer, io.Reader, ...)
-	sliceOfTypes := introspect.FindImplementors("github.com/myrepo/mypkg/main.SomeInterface1")
+  // Which types in my code implement this interface?
+  types := who.Implements("myrepo/mypkg.SomeInterface")
 
-	// Returns a slice of interfaces in the project codebase that are implemented by a given type
-	// (must be a full type name: github.com/some_repo/some_pkg/<some_subpkg/>.MyType)
-	sliceOfInterfaces := introspect.FindInterfaces("github.com/myrepo/mypkg/main.MyType")
+  // Which interfaces in my code are implemented by this type?
+  interfaces := who.Interfaces("myrepo/mypkg.MyType")
 
-	// Returns a slice of interfaces in Go std lib that are implemented by a given type
-	// (must be a full type name: github.com/some_repo/some_pkg/<some_subpkg/>.MyType)
-	sliceOfInterfaces := introspect.FindInterfacesStd("github.com/myrepo/mypkg/main.MyType")
+  // Which external interfaces (stdlib, etc) are implemented by this type?
+  externals := who.InterfacesExt("myrepo/mypkg.MyType")
 }
 ```
+
+### 🧭 Summary of who functions
+| Function              | Description                                                               |
+| --------------------- | ------------------------------------------------------------------------- |
+| `who.Implements()`    | Returns types in your codebase that implement a given interface           |
+| `who.Interfaces()`    | Lists interfaces in your codebase that a given type implements            |
+| `who.InterfacesExt()` | Lists interfaces from stdlib and imported packages a given type satisfies |
+
 
 ## ⚖️ Comparison with other tools
 
@@ -113,15 +154,15 @@ TODO
 
 MIT © [janvaclavik](https://github.com/janvaclavik)
 
-## 🌐 Inspired by
+## 🙏 Inspired by
 - [davecgh/go-spew](https://github.com/davecgh/go-spew)
 - [yassinebenaid/godump](https://github.com/yassinebenaid/godump)
 - [goforj/godump](https://github.com/goforj/godump)
-- [nette/tracy](https://github.com/nette/tracy) (has dump() for *PHP*)
-- [laravel/laravel](https://github.com/laravel/laravel) (has dump() for *PHP*)
-- [pprint](https://docs.python.org/3/library/pprint.html) (pprint — Data pretty printer for *Python*)
+- [nette/tracy](https://github.com/nette/tracy) *(PHP's dump() inspiration)*
+- [laravel/laravel](https://github.com/laravel/laravel) *(another PHP's dump() inspiration)*
+- [pprint](https://docs.python.org/3/library/pprint.html) *(pprint — Python pretty printer)*
 
 ## 📇 Author
 
-Created by [Jan Vaclavik](https://github.com/janvaclavik)
+Made with ☕️ and reflective thought by [Jan Vaclavik](https://github.com/janvaclavik)
 

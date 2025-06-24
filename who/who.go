@@ -1,4 +1,4 @@
-package introspect
+package who
 
 import (
 	"fmt"
@@ -27,7 +27,7 @@ func isConcreteNamedType(obj types.Object) bool {
 	return !isInterface
 }
 
-func FindImplementors(interfaceFullName string) ([]string, error) {
+func Implements(interfaceFullName string) ([]string, error) {
 	// 1. Parse "pkgpath.InterfaceName"
 	typePkgPath, typeName, err := splitTypeName(interfaceFullName)
 	if err != nil {
@@ -90,15 +90,16 @@ func FindImplementors(interfaceFullName string) ([]string, error) {
 	return result, nil
 }
 
-// FindInterfaces finds interfaces in the current project that the given type implements.
-func FindInterfaces(typeFullName string) ([]string, error) {
+// Interfaces finds interfaces in the current project codespace that the given type implements.
+func Interfaces(typeFullName string) ([]string, error) {
 	return findInterfaces(typeFullName, false)
 }
 
-// FindInterfaces finds interfaces in the current project that the given type implements.
-func FindInterfacesStd(typeFullName string) ([]string, error) {
+// InterfacesExt finds interfaces anywhere (std, external imports, codespace)
+// that the given type implements.
+func InterfacesExt(typeFullName string) ([]string, error) {
 
-	// First, find all matched interfaces, including stdlib
+	// First, find all matched interfaces, including stdlib and external imports
 	listAll, err := findInterfaces(typeFullName, true)
 	if err != nil {
 		return nil, err
@@ -117,18 +118,18 @@ func FindInterfacesStd(typeFullName string) ([]string, error) {
 	}
 
 	// Init the result list
-	listStd := []string{}
+	listExt := []string{}
 	for _, iface := range listAll {
-		// Adds an interface to the Std list only if it is not in project codebase list already
+		// Adds an interface to the Ext list only if it is not in project codebase list already
 		if _, ok := codebaseSet[iface]; !ok {
-			listStd = append(listStd, iface)
+			listExt = append(listExt, iface)
 		}
 	}
 
-	return listStd, nil
+	return listExt, nil
 }
 
-func findInterfaces(typeFullName string, includeStd bool) ([]string, error) {
+func findInterfaces(typeFullName string, includeExt bool) ([]string, error) {
 	typePkgPath, typeName, err := splitTypeName(typeFullName)
 	// fmt.Println("(target) type name: ", typeName)
 	if err != nil {
@@ -140,7 +141,7 @@ func findInterfaces(typeFullName string, includeStd bool) ([]string, error) {
 	}
 
 	loadPattern := "./..."
-	if includeStd {
+	if includeExt {
 		loadPattern = "all"
 	}
 
