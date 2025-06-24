@@ -14,7 +14,7 @@ Whether you're debugging, documenting, or just staring into the void of your own
 
 ## 🤔 Why use `govar`?
 
-Because `fmt.Printf("%+v", x)` is fine until it isn't.
+Because fmt.Printf("%+v", x) is fine... until it absolutely isn’t.
 
 Most Go dumpers either stop at the surface or produce unreadable blobs. `govar` goes deep — printing **structured values**, **types**, **method sets**, and even **byte slice hexdumps** in a way that's actually *pleasant to read*.
 
@@ -43,7 +43,7 @@ And unlike some packages, `govar` lets you **poke around in your own project** �
 go get github.com/janvaclavik/govar
 ```
 
-## 🛠 Quickstart (dumper)
+## 🛠 Quickstart
 
 ```go
 package main
@@ -77,12 +77,12 @@ func main() {
 	// Dump to HTML string, values only (colored, but no extras)
 	htmlPlain := govar.HTMLdumpValues(someVarToInspect1, someVarToInspect2, ...)
 
-	// Dump and terminate the program (great for debug kills)
+	// Dump and terminate the program (great for those "I just want to see it and bail" moments)
 	govar.Die(someVarToInspect1, someVarToInspect2, ...)
 }
 ```
 
-## ⚙️ Custom Dumper Configuration
+## ⚙️ Custom Dumper
 Need more control over what and how things are printed? Use govar.Dumper directly.
 ```go
 import (
@@ -92,19 +92,19 @@ import (
 func main() {
 	// Create a custom dumper with your own settings
 	myCfg := DumperConfig{
-		IndentWidth:         3,
-		MaxDepth:            15,
-		MaxItems:            100,
-		MaxStringLen:        10000,
-		MaxInlineLength:     80,
-		ShowTypes:           true,
-		UseColors:           true,
-		TrackReferences:     true,
-		HTMLtagToken:        "span",
-		HTMLtagSection:      "pre",
-		EmbedTypeMethods:    true,
-		ShowMetaInformation: true,
-		ShowHexdump:         true,
+		IndentWidth:         3,       // indentation step
+		MaxDepth:            15,      // nesting level limit
+		MaxItems:            100,     // max elements in a collection before trunc
+		MaxStringLen:        10000,   // the limit for string dumping
+		MaxInlineLength:     80,      // the limit for inline value rendering
+		ShowTypes:           true,    // shows extra type info if true
+		UseColors:           true,    // plain text if false
+		TrackReferences:     true,    // tracks references to objects
+		HTMLtagToken:        "span",  // token wrapping tag for HTML dumps
+		HTMLtagSection:      "pre",   // block wrapping tag for HTML dumps
+		EmbedTypeMethods:    true,    // shows implemented methods on structs if true
+		ShowMetaInformation: true,    // shows sizes, capacities, "rune length", etc
+		ShowHexdump:         true,    // shows classic hexdump on byte[] or uint8[] if true
 	}
 
 	d := NewDumper(myCfg)
@@ -117,7 +117,7 @@ func main() {
 }
 ```
 
-## 🔍 Introspection Helpers
+## 🔍 The "Who" Introspection Helpers
 
 ```go
 package main

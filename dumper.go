@@ -605,12 +605,12 @@ func (d *Dumper) renderMap(tw *tabwriter.Writer, v reflect.Value, level int, vis
 
 		if !d.shouldRenderInline(v) {
 			// indent, render key and type
-			d.renderIndent(tw, level+1, fmt.Sprintf("%s%s	=> ", d.ApplyFormat(ColorViolet, keyStr), formattedType))
+			d.renderIndent(tw, level+1, fmt.Sprintf("%s%s	=> ", d.ApplyFormat(ColorDarkTeal, keyStr), formattedType))
 			// recursively print the array value itself, increase indent level
 			d.renderValue(tw, v.MapIndex(key), level+1, visited)
 		} else {
 			// do not indent, render key and type
-			fmt.Fprintf(tw, "%s%s	=> ", d.ApplyFormat(ColorViolet, keyStr), formattedType)
+			fmt.Fprintf(tw, "%s%s	=> ", d.ApplyFormat(ColorDarkTeal, keyStr), formattedType)
 			// recursively print the array value itself, same indent level
 			d.renderValue(tw, v.MapIndex(key), level, visited)
 		}
