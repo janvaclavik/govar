@@ -13,15 +13,6 @@ import (
 	"unicode/utf8"
 )
 
-const (
-	SymbolArrL    = "["
-	SymbolArrR    = "]"
-	SymbolStructL = "{"
-	SymbolStructR = "}"
-	SymbolMetaL   = "|" // ⟪, ‹, ⟦
-	SymbolMetaR   = "|" // ⟫, ›, ⟧
-)
-
 type DumperConfig struct {
 	IndentWidth         int
 	MaxDepth            int
@@ -108,7 +99,7 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 		runeCount := utf8.RuneCountInString(strVal)
 		length += runeCount + 2
 		if d.config.ShowMetaInformation {
-			meta := fmt.Sprintf(" |R=%d|", runeCount)
+			meta := fmt.Sprintf(" |R:%d|", runeCount)
 			length += len(meta)
 		}
 		return length
@@ -288,6 +279,13 @@ func (d *Dumper) renderHeader(out io.Writer) {
 	fmt.Fprintln(out, header)
 }
 
+func (d *Dumper) metaHint(msg string, ico string) string {
+	if ico != "" {
+		return d.ApplyFormat(ColorDimGray, fmt.Sprintf("|%s %s| ", ico, msg))
+	}
+	return d.ApplyFormat(ColorDimGray, fmt.Sprintf("|%s| ", msg))
+}
+
 // renderAllValues writes all the values to the tabwriter, handling references and indentation.
 func (d *Dumper) renderAllValues(tw *tabwriter.Writer, vs ...any) {
 	d.referenceMap = map[uintptr]int{} // reset each time
@@ -328,7 +326,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 	// check for std fmt.Stringer interface representation
 	if str := d.asStringerInterface(v); str != "" {
 		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, "|⧉ Stringer| "))
+			fmt.Fprint(tw, d.metaHint("Stringer", "⧉"))
 		}
 		fmt.Fprint(tw, str)
 		return
@@ -337,7 +335,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 	// check for std error interface representation
 	if str := d.asErrorInterface(v); str != "" {
 		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, "|⧉ error| "))
+			fmt.Fprint(tw, d.metaHint("error", "⧉"))
 		}
 		fmt.Fprint(tw, str)
 		return
@@ -383,7 +381,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		str := d.stringEscape(v.String())
 		str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorGoldenrod, `"`)
 		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, fmt.Sprintf("|R:%d| ", strLen)))
+			fmt.Fprint(tw, d.metaHint(fmt.Sprintf("R:%d", strLen), ""))
 		}
 		fmt.Fprint(tw, str)
 	case reflect.Struct:
@@ -417,7 +415,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 			// Try the stringer interface on this struct field first
 			if str := d.asStringerInterface(fieldVal); str != "" {
 				if d.config.ShowMetaInformation {
-					fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, "|⧉ Stringer| "))
+					fmt.Fprint(tw, d.metaHint("Stringer", "⧉"))
 				}
 				fmt.Fprint(tw, str)
 			} else {
@@ -449,8 +447,9 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		fmt.Fprint(tw, "}")
 	case reflect.Map:
 		if d.config.ShowMetaInformation {
-			mapLen := fmt.Sprintf("|%d| ", v.Len())
-			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, mapLen))
+			mapLen := fmt.Sprintf("%d", v.Len())
+			d.metaHint(mapLen, "")
+			fmt.Fprint(tw, d.metaHint(mapLen, ""))
 		}
 
 		fmt.Fprint(tw, "[")
@@ -499,16 +498,16 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		if d.config.ShowMetaInformation {
 			var listLen string
 			if v.Kind() == reflect.Array {
-				listLen = fmt.Sprintf("|%d| ", v.Len())
+				listLen = fmt.Sprintf("%d", v.Len())
 			} else {
 				if v.Len() == v.Cap() {
-					listLen = fmt.Sprintf("|%d| ", v.Len())
+					listLen = fmt.Sprintf("%d", v.Len())
 				} else {
-					listLen = fmt.Sprintf("|L:%d C:%d| ", v.Len(), v.Cap())
+					listLen = fmt.Sprintf("L:%d C:%d", v.Len(), v.Cap())
 				}
-
 			}
-			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, listLen))
+
+			fmt.Fprint(tw, d.metaHint(listLen, ""))
 		}
 		fmt.Fprint(tw, "[")
 		if !d.shouldRenderInline(v) {
@@ -592,8 +591,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 	case reflect.Func:
 		funName := d.ApplyFormat(ColorLightTeal, getFunctionName(v))
 		if d.config.ShowMetaInformation {
-			funMeta := d.ApplyFormat(ColorDimGray, fmt.Sprintf("|func@%#x| ", v.Pointer()))
-			fmt.Fprint(tw, funMeta)
+			fmt.Fprint(tw, d.metaHint(fmt.Sprintf("func@%#x", v.Pointer()), ""))
 		}
 		fmt.Fprint(tw, funName)
 	case reflect.Chan:
@@ -608,8 +606,7 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 				symbol = d.ApplyFormat(ColorGreen, "🢃")
 			}
 			if d.config.ShowMetaInformation {
-				chBuffStr := d.ApplyFormat(ColorDimGray, fmt.Sprintf("|B:%d| ", v.Cap()))
-				fmt.Fprint(tw, chBuffStr)
+				fmt.Fprint(tw, d.metaHint(fmt.Sprintf("B:%d", v.Cap()), ""))
 			}
 			fmt.Fprintf(tw, "%s %s%s", symbol, d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorLightTeal, fmt.Sprintf("%#x", v.Pointer())))
 		}
