@@ -1,6 +1,9 @@
 package govar
 
-import "fmt"
+import (
+	"fmt"
+	"html"
+)
 
 type Formatter interface {
 	ApplyFormat(code string, str string) string
@@ -21,5 +24,5 @@ func (f ANSIcolorFormatter) ApplyFormat(code string, str string) string {
 type HTMLformatter struct{}
 
 func (f HTMLformatter) ApplyFormat(code string, str string) string {
-	return fmt.Sprintf(`<span style="color:%s">%s</span>`, ColorPaletteHTML[code], str)
+	return fmt.Sprintf(`<span style="color:%s">%s</span>`, ColorPaletteHTML[code], html.EscapeString(str))
 }

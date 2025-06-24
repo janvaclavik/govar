@@ -292,7 +292,7 @@ func (d *Dumper) renderAllValues(tw *tabwriter.Writer, vs ...any) {
 		rv = makeAddressable(rv)
 
 		// Render value's type signature
-		fmt.Fprint(tw, d.ApplyFormat(ColorDarkGray, d.formatType(rv, false)))
+		fmt.Fprint(tw, d.formatType(rv, false))
 		// On the zero level, if types are ON, render the "mapping to" symbol
 		if d.config.ShowTypes {
 			fmt.Fprint(tw, " => ")
