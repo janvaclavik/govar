@@ -61,11 +61,15 @@ func main() {
 	// Returns a sorted slice of types in your codebase that implement a given interface
 	// (must be a full interface type name: github.com/some_repo/some_pkg/<some_subpkg/>.SomeInterface)
 	// (or fmt.Stringer, io.Reader, ...)
-	sliceOfTypes := govar.FindImplementors("github.com/myrepo/mypkg/main.SomeInterface1")
+	sliceOfTypes := introspect.FindImplementors("github.com/myrepo/mypkg/main.SomeInterface1")
 
-	// Returns a sorted slice of interfaces in current project codebase that are  implemented by a given type
+	// Returns a sorted slice of interfaces in current project codebase that are implemented by a given type
 	// (must be a full type name: github.com/some_repo/some_pkg/<some_subpkg/>.MyType)
-	sliceOfInterfaces := govar.FindInterfaces("github.com/myrepo/mypkg/main.MyType")
+	sliceOfInterfaces := introspect.FindInterfaces("github.com/myrepo/mypkg/main.MyType")
+
+	// Returns a sorted slice of interfaces in Go std lib that are implemented by a given type
+	// (must be a full type name: github.com/some_repo/some_pkg/<some_subpkg/>.MyType)
+	sliceOfInterfaces := introspect.FindInterfacesStd("github.com/myrepo/mypkg/main.MyType")
 
 }
 ```
