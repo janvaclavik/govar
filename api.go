@@ -17,6 +17,7 @@ func Fdump(w io.Writer, values ...any) {
 		HTMLtagSection:      "pre",
 		EmbedTypeMethods:    true,
 		ShowMetaInformation: true,
+		ShowHexdump:         true,
 	}
 	d := NewDumper(defaultConfig)
 	d.Fdump(w, values...)
@@ -37,6 +38,7 @@ func Die(values ...any) {
 		HTMLtagSection:      "pre",
 		EmbedTypeMethods:    true,
 		ShowMetaInformation: true,
+		ShowHexdump:         true,
 	}
 	d := NewDumper(defaultConfig)
 	d.Die(values...)
@@ -57,6 +59,7 @@ func Dump(values ...any) {
 		HTMLtagSection:      "pre",
 		EmbedTypeMethods:    true,
 		ShowMetaInformation: true,
+		ShowHexdump:         true,
 	}
 	d := NewDumper(defaultConfig)
 	d.Dump(values...)
@@ -77,6 +80,7 @@ func SdumpHTML(values ...any) string {
 		HTMLtagSection:      "pre",
 		EmbedTypeMethods:    true,
 		ShowMetaInformation: true,
+		ShowHexdump:         true,
 	}
 	d := NewDumper(defaultConfig)
 	return d.SdumpHTML(values...)
@@ -97,6 +101,7 @@ func Sdump(values ...any) string {
 		HTMLtagSection:      "pre",
 		EmbedTypeMethods:    true,
 		ShowMetaInformation: true,
+		ShowHexdump:         true,
 	}
 	d := NewDumper(defaultConfig)
 	return d.Sdump(values...)

@@ -26,6 +26,7 @@ type DumperConfig struct {
 	HTMLtagSection      string
 	EmbedTypeMethods    bool
 	ShowMetaInformation bool
+	ShowHexdump         bool
 }
 
 type Dumper struct {
@@ -269,11 +270,7 @@ func (d *Dumper) renderHeader(out io.Writer) {
 		}
 	}
 
-	names := strings.Split(govarFuncName, ".")
-	colorizedPkg := strings.Replace(names[0], "go", d.ApplyFormat(ColorDarkGoBlue, "go"), 1)
-	colorizedPkg = strings.Replace(colorizedPkg, "var", d.ApplyFormat(ColorGoBlue, "var."), 1)
-	colorizedFunc := d.ApplyFormat(ColorGoBlue, names[1])
-	headerTitle := d.ApplyFormat(ColorGoBlue, "[>]") + " " + colorizedPkg + colorizedFunc
+	headerTitle := d.ApplyFormat(ColorGoBlue, "[>] "+govarFuncName)
 	headerLocation := d.ApplyFormat(ColorSlateGray, fmt.Sprintf("  ⟵  %s:%d", relPath, line))
 	header := headerTitle + headerLocation
 	fmt.Fprintln(out, header)
@@ -343,31 +340,14 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 
 	switch v.Kind() {
 	case reflect.Ptr:
-		// If a pointer type is addressable and known, show a reference marker
-		// If a pointer type is addressable and new, store it in the reference map
-		if v.CanAddr() {
-			ptr := v.Pointer()
-			if id, ok := d.referenceMap[ptr]; ok {
-				fmt.Fprintf(tw, d.ApplyFormat(ColorSlateGray, "↩︎ &%d"), id)
-				return
-			} else {
-				d.referenceMap[ptr] = d.nextRefID
-				d.nextRefID++
-			}
-		}
-		// Continue with rendering the value that the pointer points to
-		d.renderValue(tw, v.Elem(), level, visited)
+		d.renderPointer(tw, v, level, visited)
 	case reflect.Interface:
 		// Continue with rendering the value that the interface contains
 		d.renderValue(tw, v.Elem(), level, visited)
 	case reflect.UnsafePointer:
 		fmt.Fprint(tw, d.ApplyFormat(ColorSlateGray, fmt.Sprintf("unsafe.Pointer(%#x)", v.Pointer())))
 	case reflect.Bool:
-		if v.Bool() {
-			fmt.Fprint(tw, d.ApplyFormat(ColorSeafoamGreen, "true"))
-		} else {
-			fmt.Fprint(tw, d.ApplyFormat(ColorCoralRed, "false"))
-		}
+		d.renderBool(tw, v)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		fmt.Fprint(tw, d.ApplyFormat(ColorSkyBlue, fmt.Sprint(v.Int())))
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
@@ -377,109 +357,108 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 	case reflect.Complex64, reflect.Complex128:
 		fmt.Fprint(tw, d.ApplyFormat(ColorSkyBlue, fmt.Sprintf("%v", v.Complex())))
 	case reflect.String:
-		strLen := utf8.RuneCountInString(v.String())
-		str := d.stringEscape(v.String())
-		str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorGoldenrod, `"`)
-		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.metaHint(fmt.Sprintf("R:%d", strLen), ""))
-		}
-		fmt.Fprint(tw, str)
+		d.renderString(tw, v)
 	case reflect.Struct:
-		t := v.Type()
-		fmt.Fprint(tw, "{")
-		if !d.shouldRenderInline(v) {
-			fmt.Fprintln(tw)
-		}
-
-		visibleFields := reflect.VisibleFields(t)
-		for i, field := range visibleFields {
-			fieldVal := v.FieldByIndex(field.Index)
-			symbol := "⯀ "
-			if field.PkgPath != "" {
-				symbol = "🞏 "
-				fieldVal = forceExported(fieldVal)
-			}
-			symbol = d.ApplyFormat(ColorDarkGoBlue, symbol)
-			fieldName := d.ApplyFormat(ColorLightTeal, field.Name)
-			if !d.shouldRenderInline(v) {
-				// print visibility and symbol name, with indent
-				d.renderIndent(tw, level+1, symbol+fieldName)
-			} else {
-				// inline render of the field
-				fmt.Fprintf(tw, symbol+fieldName)
-			}
-			// print field type signature
-			formattedType := d.formatType(fieldVal, false)
-			fmt.Fprintf(tw, "	%s	=> ", formattedType)
-
-			// Try the stringer interface on this struct field first
-			if str := d.asStringerInterface(fieldVal); str != "" {
-				if d.config.ShowMetaInformation {
-					fmt.Fprint(tw, d.metaHint("Stringer", "⧉"))
-				}
-				fmt.Fprint(tw, str)
-			} else {
-				// or recursively render the field value itself
-				if !d.shouldRenderInline(v) {
-					d.renderValue(tw, fieldVal, level+1, visited)
-				} else {
-					// inline render
-					d.renderValue(tw, fieldVal, level, visited)
-				}
-			}
-
-			if !d.shouldRenderInline(v) {
-				fmt.Fprintln(tw)
-			} else {
-				if i != len(visibleFields)-1 {
-					fmt.Fprint(tw, ", ")
-				}
-			}
-		}
-		// print all of struct's type methods (never inline)
-		if d.config.EmbedTypeMethods {
-			d.renderTypeMethods(tw, t, level+1)
-		}
-
-		if !d.shouldRenderInline(v) {
-			d.renderIndent(tw, level, "")
-		}
-		fmt.Fprint(tw, "}")
+		d.renderStruct(tw, v, level, visited)
 	case reflect.Map:
+		d.renderMap(tw, v, level, visited)
+	case reflect.Slice, reflect.Array:
+		d.renderArrayOrSlice(tw, v, level, visited)
+	case reflect.Func:
+		d.renderFunc(tw, v)
+	case reflect.Chan:
+		d.renderChan(tw, v)
+	default:
+		// Should be unreachable - all reflect.Kind cases are handled
+		fmt.Fprintln(tw, "[WARNING] unknown reflect.Kind, rendering not implemented")
+	}
+}
+
+func (d *Dumper) renderPointer(tw *tabwriter.Writer, v reflect.Value, level int, visited map[uintptr]bool) {
+	// If a pointer type is addressable and known, show a reference marker
+	// If a pointer type is addressable and new, store it in the reference map
+	if v.CanAddr() {
+		ptr := v.Pointer()
+		if id, ok := d.referenceMap[ptr]; ok {
+			fmt.Fprintf(tw, d.ApplyFormat(ColorSlateGray, "↩︎ &%d"), id)
+			return
+		} else {
+			d.referenceMap[ptr] = d.nextRefID
+			d.nextRefID++
+		}
+	}
+	// Continue with rendering the value that the pointer points to
+	d.renderValue(tw, v.Elem(), level, visited)
+}
+
+func (d *Dumper) renderChan(tw *tabwriter.Writer, v reflect.Value) {
+	if v.IsNil() {
+		fmt.Fprint(tw, d.ApplyFormat(ColorCoralRed, "<nil>"))
+	} else {
+		symbol := d.ApplyFormat(ColorGoldenrod, "⮁") // ▲ 🠕 ⯭ ▼ ⯯ ▦
+		chDir := v.Type().ChanDir().String()
+		if chDir == "chan<-" {
+			symbol = d.ApplyFormat(ColorGoBlue, "🡹")
+		} else if chDir == "<-chan" {
+			symbol = d.ApplyFormat(ColorGreen, "🢃")
+		}
 		if d.config.ShowMetaInformation {
-			mapLen := fmt.Sprintf("%d", v.Len())
-			d.metaHint(mapLen, "")
-			fmt.Fprint(tw, d.metaHint(mapLen, ""))
+			fmt.Fprint(tw, d.metaHint(fmt.Sprintf("B:%d", v.Cap()), ""))
+		}
+		fmt.Fprintf(tw, "%s %s%s", symbol, d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorLightTeal, fmt.Sprintf("%#x", v.Pointer())))
+	}
+}
+
+func (d *Dumper) renderFunc(tw *tabwriter.Writer, v reflect.Value) {
+	funName := d.ApplyFormat(ColorLightTeal, getFunctionName(v))
+	if d.config.ShowMetaInformation {
+		fmt.Fprint(tw, d.metaHint(fmt.Sprintf("func@%#x", v.Pointer()), ""))
+	}
+	fmt.Fprint(tw, funName)
+}
+
+func (d *Dumper) renderArrayOrSlice(tw *tabwriter.Writer, v reflect.Value, level int, visited map[uintptr]bool) {
+	if d.config.ShowMetaInformation {
+		var listLen string
+		if v.Kind() == reflect.Array {
+			listLen = fmt.Sprintf("%d", v.Len())
+		} else {
+			if v.Len() == v.Cap() {
+				listLen = fmt.Sprintf("%d", v.Len())
+			} else {
+				listLen = fmt.Sprintf("L:%d C:%d", v.Len(), v.Cap())
+			}
 		}
 
-		fmt.Fprint(tw, "[")
-		if !d.shouldRenderInline(v) {
-			fmt.Fprintln(tw)
-		}
+		fmt.Fprint(tw, d.metaHint(listLen, ""))
+	}
+	fmt.Fprint(tw, "[")
+	if !d.shouldRenderInline(v) {
+		fmt.Fprintln(tw)
+	}
 
-		keys := v.MapKeys()
-		for i, key := range keys {
+	if d.config.ShowHexdump && v.Type().Elem().Kind() == reflect.Uint8 {
+		d.renderHexdump(tw, v, level)
+	} else {
+
+		for i := range v.Len() {
 			if i >= d.config.MaxItems {
-				d.renderIndent(tw, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)"))
+				d.renderIndent(tw, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)\n"))
 				break
 			}
-
-			// keyStr := fmt.Sprintf("%v", key.Interface())
-			keyStr := d.formatMapKeyAsIndex(key)
-
 			// print element type signature
-			formattedType := d.formatType(v.MapIndex(key), true)
-
+			formattedType := d.formatType(v.Index(i), true)
+			indexSymbol := d.ApplyFormat(ColorDarkTeal, fmt.Sprintf("%d", i))
 			if !d.shouldRenderInline(v) {
-				// indent, render key and type
-				d.renderIndent(tw, level+1, fmt.Sprintf("%s%s	=> ", d.ApplyFormat(ColorViolet, keyStr), formattedType))
+				// indent, render index (and type)
+				d.renderIndent(tw, level+1, fmt.Sprintf("%s%s => ", indexSymbol, formattedType))
 				// recursively print the array value itself, increase indent level
-				d.renderValue(tw, v.MapIndex(key), level+1, visited)
+				d.renderValue(tw, v.Index(i), level+1, visited)
 			} else {
-				// do not indent, render key and type
-				fmt.Fprintf(tw, "%s%s	=> ", d.ApplyFormat(ColorViolet, keyStr), formattedType)
+				// do not indent, render index (and type)
+				fmt.Fprintf(tw, "%s%s => ", indexSymbol, formattedType)
 				// recursively print the array value itself, same indent level
-				d.renderValue(tw, v.MapIndex(key), level, visited)
+				d.renderValue(tw, v.Index(i), level, visited)
 			}
 
 			if !d.shouldRenderInline(v) {
@@ -490,129 +469,181 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 				}
 			}
 		}
-		if !d.shouldRenderInline(v) {
-			d.renderIndent(tw, level, "")
-		}
-		fmt.Fprint(tw, "]")
-	case reflect.Slice, reflect.Array:
-		if d.config.ShowMetaInformation {
-			var listLen string
-			if v.Kind() == reflect.Array {
-				listLen = fmt.Sprintf("%d", v.Len())
-			} else {
-				if v.Len() == v.Cap() {
-					listLen = fmt.Sprintf("%d", v.Len())
-				} else {
-					listLen = fmt.Sprintf("L:%d C:%d", v.Len(), v.Cap())
-				}
-			}
+	}
 
-			fmt.Fprint(tw, d.metaHint(listLen, ""))
+	if !d.shouldRenderInline(v) {
+		d.renderIndent(tw, level, "")
+	}
+
+	fmt.Fprint(tw, "]")
+}
+
+func (d *Dumper) renderHexdump(tw *tabwriter.Writer, v reflect.Value, level int) {
+	// using std package hex
+	// Safe fallback: Manual conversion to addressable array (cause v.Bytes() might not work)
+	content := toAddressableByteSlice(v)
+	// fmt.Printf("%s", hex.Dump(content))
+	lines := strings.Split(hex.Dump(content), "\n")
+
+	for _, line := range lines {
+		if line == "" {
+			continue
 		}
-		fmt.Fprint(tw, "[")
+		// Example line:
+		// 00000000  48 65 6c 6c 6f 2c 20 57  6f 72 6c 64 21 0a 00 ff  |Hello, World!...|
+
+		// Split into three main parts:
+		if len(line) < 10 {
+			fmt.Println(line) // fallback
+			continue
+		}
+
+		offsetPart := line[:10]
+		hexPart := line[10:58] // includes 2 spaces between 8-byte blocks
+		asciiPart := ""
+		if idx := strings.Index(line, "  |"); idx != -1 {
+			asciiPart = line[idx:]
+		}
+		// Print indent
+		d.renderIndent(tw, level+1, "")
+		// Print with color
+		fmt.Fprintf(tw, "%s%s%s\n",
+			d.ApplyFormat(ColorDarkTeal, offsetPart),
+			d.ApplyFormat(ColorSkyBlue, hexPart),
+			d.ApplyFormat(ColorLime, asciiPart),
+		)
+	}
+}
+
+func (d *Dumper) renderStruct(tw *tabwriter.Writer, v reflect.Value, level int, visited map[uintptr]bool) {
+	t := v.Type()
+	fmt.Fprint(tw, "{")
+	if !d.shouldRenderInline(v) {
+		fmt.Fprintln(tw)
+	}
+
+	visibleFields := reflect.VisibleFields(t)
+	for i, field := range visibleFields {
+		fieldVal := v.FieldByIndex(field.Index)
+		symbol := "⯀ "
+		if field.PkgPath != "" {
+			symbol = "🞏 "
+			fieldVal = forceExported(fieldVal)
+		}
+		symbol = d.ApplyFormat(ColorDarkGoBlue, symbol)
+		fieldName := d.ApplyFormat(ColorLightTeal, field.Name)
+		if !d.shouldRenderInline(v) {
+			// print visibility and symbol name, with indent
+			d.renderIndent(tw, level+1, symbol+fieldName)
+		} else {
+			// inline render of the field
+			fmt.Fprintf(tw, symbol+fieldName)
+		}
+		// print field type signature
+		formattedType := d.formatType(fieldVal, false)
+		fmt.Fprintf(tw, "	%s	=> ", formattedType)
+
+		// Try the stringer interface on this struct field first
+		if str := d.asStringerInterface(fieldVal); str != "" {
+			if d.config.ShowMetaInformation {
+				fmt.Fprint(tw, d.metaHint("Stringer", "⧉"))
+			}
+			fmt.Fprint(tw, str)
+		} else {
+			// or recursively render the field value itself
+			if !d.shouldRenderInline(v) {
+				d.renderValue(tw, fieldVal, level+1, visited)
+			} else {
+				// inline render
+				d.renderValue(tw, fieldVal, level, visited)
+			}
+		}
+
 		if !d.shouldRenderInline(v) {
 			fmt.Fprintln(tw)
+		} else {
+			if i != len(visibleFields)-1 {
+				fmt.Fprint(tw, ", ")
+			}
+		}
+	}
+	// print all of struct's type methods (never inline)
+	if d.config.EmbedTypeMethods {
+		d.renderTypeMethods(tw, t, level+1)
+	}
+
+	if !d.shouldRenderInline(v) {
+		d.renderIndent(tw, level, "")
+	}
+	fmt.Fprint(tw, "}")
+}
+
+func (d *Dumper) renderMap(tw *tabwriter.Writer, v reflect.Value, level int, visited map[uintptr]bool) {
+	if d.config.ShowMetaInformation {
+		mapLen := fmt.Sprintf("%d", v.Len())
+		d.metaHint(mapLen, "")
+		fmt.Fprint(tw, d.metaHint(mapLen, ""))
+	}
+
+	fmt.Fprint(tw, "[")
+	if !d.shouldRenderInline(v) {
+		fmt.Fprintln(tw)
+	}
+
+	keys := v.MapKeys()
+	for i, key := range keys {
+		if i >= d.config.MaxItems {
+			d.renderIndent(tw, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)"))
+			break
 		}
 
-		if v.Type().Elem().Kind() == reflect.Uint8 {
-			// using std package hex
+		// keyStr := fmt.Sprintf("%v", key.Interface())
+		keyStr := d.formatMapKeyAsIndex(key)
 
-			// Safe fallback: Manual conversion to addressable array (cause v.Bytes() might not work)
-			content := toAddressableByteSlice(v)
-			// fmt.Printf("%s", hex.Dump(content))
-			lines := strings.Split(hex.Dump(content), "\n")
+		// print element type signature
+		formattedType := d.formatType(v.MapIndex(key), true)
 
-			for _, line := range lines {
-				if line == "" {
-					continue
-				}
-				// Example line:
-				// 00000000  48 65 6c 6c 6f 2c 20 57  6f 72 6c 64 21 0a 00 ff  |Hello, World!...|
-
-				// Split into three main parts:
-				if len(line) < 10 {
-					fmt.Println(line) // fallback
-					continue
-				}
-
-				offsetPart := line[:10]
-				hexPart := line[10:58] // includes 2 spaces between 8-byte blocks
-				asciiPart := ""
-				if idx := strings.Index(line, "  |"); idx != -1 {
-					asciiPart = line[idx:]
-				}
-				// Print indent
-				d.renderIndent(tw, level+1, "")
-				// Print with color
-				fmt.Fprintf(tw, "%s%s%s\n",
-					d.ApplyFormat(ColorDarkTeal, offsetPart),
-					d.ApplyFormat(ColorSkyBlue, hexPart),
-					d.ApplyFormat(ColorLime, asciiPart),
-				)
-			}
-
+		if !d.shouldRenderInline(v) {
+			// indent, render key and type
+			d.renderIndent(tw, level+1, fmt.Sprintf("%s%s	=> ", d.ApplyFormat(ColorViolet, keyStr), formattedType))
+			// recursively print the array value itself, increase indent level
+			d.renderValue(tw, v.MapIndex(key), level+1, visited)
 		} else {
-
-			for i := range v.Len() {
-				if i >= d.config.MaxItems {
-					d.renderIndent(tw, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)\n"))
-					break
-				}
-				// print element type signature
-				formattedType := d.formatType(v.Index(i), true)
-				indexSymbol := d.ApplyFormat(ColorDarkTeal, fmt.Sprintf("%d", i))
-				if !d.shouldRenderInline(v) {
-					// indent, render index (and type)
-					d.renderIndent(tw, level+1, fmt.Sprintf("%s%s => ", indexSymbol, formattedType))
-					// recursively print the array value itself, increase indent level
-					d.renderValue(tw, v.Index(i), level+1, visited)
-				} else {
-					// do not indent, render index (and type)
-					fmt.Fprintf(tw, "%s%s => ", indexSymbol, formattedType)
-					// recursively print the array value itself, same indent level
-					d.renderValue(tw, v.Index(i), level, visited)
-				}
-
-				if !d.shouldRenderInline(v) {
-					fmt.Fprintln(tw)
-				} else {
-					if i != v.Len()-1 {
-						fmt.Fprint(tw, ", ")
-					}
-				}
-			}
+			// do not indent, render key and type
+			fmt.Fprintf(tw, "%s%s	=> ", d.ApplyFormat(ColorViolet, keyStr), formattedType)
+			// recursively print the array value itself, same indent level
+			d.renderValue(tw, v.MapIndex(key), level, visited)
 		}
 
 		if !d.shouldRenderInline(v) {
-			d.renderIndent(tw, level, "")
-		}
-
-		fmt.Fprint(tw, "]")
-	case reflect.Func:
-		funName := d.ApplyFormat(ColorLightTeal, getFunctionName(v))
-		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.metaHint(fmt.Sprintf("func@%#x", v.Pointer()), ""))
-		}
-		fmt.Fprint(tw, funName)
-	case reflect.Chan:
-		if v.IsNil() {
-			fmt.Fprint(tw, d.ApplyFormat(ColorCoralRed, "<nil>"))
+			fmt.Fprintln(tw)
 		} else {
-			symbol := d.ApplyFormat(ColorGoldenrod, "⮁") // ▲ 🠕 ⯭ ▼ ⯯ ▦
-			chDir := v.Type().ChanDir().String()
-			if chDir == "chan<-" {
-				symbol = d.ApplyFormat(ColorGoBlue, "🡹")
-			} else if chDir == "<-chan" {
-				symbol = d.ApplyFormat(ColorGreen, "🢃")
+			if i != v.Len()-1 {
+				fmt.Fprint(tw, ", ")
 			}
-			if d.config.ShowMetaInformation {
-				fmt.Fprint(tw, d.metaHint(fmt.Sprintf("B:%d", v.Cap()), ""))
-			}
-			fmt.Fprintf(tw, "%s %s%s", symbol, d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorLightTeal, fmt.Sprintf("%#x", v.Pointer())))
 		}
-	default:
-		fmt.Fprintln(tw, "[WARNING] govar: unknown reflect.Kind, rendering not implemented")
-		// Should be unreachable - all reflect.Kind cases are handled
+	}
+	if !d.shouldRenderInline(v) {
+		d.renderIndent(tw, level, "")
+	}
+	fmt.Fprint(tw, "]")
+}
+
+func (d *Dumper) renderString(tw *tabwriter.Writer, v reflect.Value) {
+	strLen := utf8.RuneCountInString(v.String())
+	str := d.stringEscape(v.String())
+	str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorGoldenrod, `"`)
+	if d.config.ShowMetaInformation {
+		fmt.Fprint(tw, d.metaHint(fmt.Sprintf("R:%d", strLen), ""))
+	}
+	fmt.Fprint(tw, str)
+}
+
+func (d *Dumper) renderBool(tw *tabwriter.Writer, v reflect.Value) {
+	if v.Bool() {
+		fmt.Fprint(tw, d.ApplyFormat(ColorSeafoamGreen, "true"))
+	} else {
+		fmt.Fprint(tw, d.ApplyFormat(ColorCoralRed, "false"))
 	}
 }
 
