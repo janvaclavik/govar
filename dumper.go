@@ -465,22 +465,16 @@ func (d *Dumper) renderArrayOrSlice(sb *strings.Builder, v reflect.Value, level 
 	} else {
 
 		// First we do a pre-pass and calculate the lengthiest type
-		// maxKeyLen := 0
 		maxTypeLen := 0
 		for i := range v.Len() {
 			if i >= d.config.MaxItems {
 				break
 			}
-			// keyStr := d.formatMapKeyAsIndex(key)
-			// if utf8.RuneCountInString(keyStr) > maxKeyLen {
-			// 	maxKeyLen = utf8.RuneCountInString(keyStr)
-			// }
 			typeName := d.formatTypeNoColors(v.Index(i), true)
 			if utf8.RuneCountInString(typeName) > maxTypeLen {
 				maxTypeLen = utf8.RuneCountInString(typeName)
 			}
 		}
-		fmt.Println("DEBUG array:", "maxTypeLen:", maxTypeLen)
 
 		for i := range v.Len() {
 			if i >= d.config.MaxItems {
