@@ -207,15 +207,17 @@ func (d *Dumper) formatType(v reflect.Value, isInCollection bool) string {
 	// print element type signature
 	vKind := v.Kind()
 	expectedType := ""
-	if vKind == reflect.Array || vKind == reflect.Slice || vKind == reflect.Map || vKind == reflect.Struct || vKind == reflect.Interface {
+	if vKind == reflect.Interface {
+		expectedType = d.ApplyFormat(ColorDarkGray, "⧉ "+v.Type().String())
+	} else if vKind == reflect.Array || vKind == reflect.Slice || vKind == reflect.Map || vKind == reflect.Struct {
 		expectedType = d.ApplyFormat(ColorDarkGray, v.Type().String())
 	} else if !isInCollection {
 		expectedType = d.ApplyFormat(ColorDarkGray, v.Type().String())
 	}
 
-	// if element type is just "any", print the actual variable type
+	// if element type is an interface we can show the actual variable type
 	actualType := ""
-	if vKind == reflect.Interface && v.Type().NumMethod() == 0 && !v.IsNil() {
+	if vKind == reflect.Interface && !v.IsNil() {
 		actualType = d.ApplyFormat(ColorDarkGray, "("+v.Elem().Type().String()+")")
 	}
 	formattedType := expectedType + actualType
@@ -320,28 +322,31 @@ func (d *Dumper) renderValue(tw *tabwriter.Writer, v reflect.Value, level int, v
 		return
 	}
 
-	// check for std fmt.Stringer interface representation
-	if str := d.asStringerInterface(v); str != "" {
-		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.metaHint("Stringer", "⧉"))
+	if v.Kind() != reflect.Interface {
+		// check for concrete interface (std fmt.Stringer) representation
+		if str := d.asStringerInterface(v); str != "" {
+			if d.config.ShowMetaInformation {
+				fmt.Fprint(tw, d.metaHint("as Stringer", ""))
+			}
+			fmt.Fprint(tw, str+" ")
+			return
 		}
-		fmt.Fprint(tw, str)
-		return
-	}
 
-	// check for std error interface representation
-	if str := d.asErrorInterface(v); str != "" {
-		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.metaHint("error", "⧉"))
+		// check for concrete interface (std error) representation
+		if str := d.asErrorInterface(v); str != "" {
+			if d.config.ShowMetaInformation {
+				fmt.Fprint(tw, d.metaHint("as error", ""))
+			}
+			fmt.Fprint(tw, str+" ")
+			return
 		}
-		fmt.Fprint(tw, str)
-		return
 	}
 
 	switch v.Kind() {
 	case reflect.Ptr:
 		d.renderPointer(tw, v, level, visited)
 	case reflect.Interface:
+		// TODO: ...
 		// Continue with rendering the value that the interface contains
 		d.renderValue(tw, v.Elem(), level, visited)
 	case reflect.UnsafePointer:
@@ -451,7 +456,13 @@ func (d *Dumper) renderArrayOrSlice(tw *tabwriter.Writer, v reflect.Value, level
 			indexSymbol := d.ApplyFormat(ColorDarkTeal, fmt.Sprintf("%d", i))
 			if !d.shouldRenderInline(v) {
 				// indent, render index (and type)
-				d.renderIndent(tw, level+1, fmt.Sprintf("%s%s => ", indexSymbol, formattedType))
+				renderIndex := ""
+				if formattedType != "" {
+					renderIndex = fmt.Sprintf("%s %s\t=> ", indexSymbol, formattedType)
+				} else {
+					renderIndex = fmt.Sprintf("%s => ", indexSymbol)
+				}
+				d.renderIndent(tw, level+1, renderIndex)
 				// recursively print the array value itself, increase indent level
 				d.renderValue(tw, v.Index(i), level+1, visited)
 			} else {
@@ -532,32 +543,30 @@ func (d *Dumper) renderStruct(tw *tabwriter.Writer, v reflect.Value, level int, 
 		}
 		symbol = d.ApplyFormat(ColorDarkGoBlue, symbol)
 		fieldName := d.ApplyFormat(ColorLightTeal, field.Name)
-
 		formattedType := d.formatType(fieldVal, false)
+
 		if !d.shouldRenderInline(v) {
+			fieldRender := fmt.Sprintf("%s\t=>\t", symbol+fieldName)
+			if formattedType != "" {
+				fieldRender = fmt.Sprintf("%s\t%s\t=>\t", symbol+fieldName, formattedType)
+			}
 			// print visibility and symbol name, with indent
-			d.renderIndent(tw, level+1, symbol+fieldName)
-			fmt.Fprintf(tw, "	%s	=>	", formattedType)
+			d.renderIndent(tw, level+1, fieldRender)
 		} else {
 			// inline render of the field
-			fmt.Fprintf(tw, symbol+fieldName)
-			fmt.Fprintf(tw, " %s => ", formattedType)
+			fieldRender := fmt.Sprintf("%s => ", symbol+fieldName)
+			if formattedType != "" {
+				fieldRender = fmt.Sprintf("%s %s => ", symbol+fieldName, formattedType)
+			}
+			fmt.Fprint(tw, fieldRender)
 		}
 
-		// Try the stringer interface on this struct field first
-		if str := d.asStringerInterface(fieldVal); str != "" {
-			if d.config.ShowMetaInformation {
-				fmt.Fprint(tw, d.metaHint("Stringer", "⧉"))
-			}
-			fmt.Fprint(tw, str)
+		// recursively render the field value itself
+		if !d.shouldRenderInline(v) {
+			d.renderValue(tw, fieldVal, level+1, visited)
 		} else {
-			// or recursively render the field value itself
-			if !d.shouldRenderInline(v) {
-				d.renderValue(tw, fieldVal, level+1, visited)
-			} else {
-				// inline render
-				d.renderValue(tw, fieldVal, level, visited)
-			}
+			// inline render
+			d.renderValue(tw, fieldVal, level, visited)
 		}
 
 		if !d.shouldRenderInline(v) {
@@ -606,12 +615,16 @@ func (d *Dumper) renderMap(tw *tabwriter.Writer, v reflect.Value, level int, vis
 
 		if !d.shouldRenderInline(v) {
 			// indent, render key and type
-			d.renderIndent(tw, level+1, fmt.Sprintf("%s	%s	=> ", d.ApplyFormat(ColorDarkTeal, keyStr), formattedType))
+			keyRender := fmt.Sprintf("%s\t=> ", d.ApplyFormat(ColorDarkTeal, keyStr))
+			if formattedType != "" {
+				keyRender = fmt.Sprintf("%s\t%s\t=> ", d.ApplyFormat(ColorDarkTeal, keyStr), formattedType)
+			}
+			d.renderIndent(tw, level+1, keyRender)
 			// recursively print the array value itself, increase indent level
 			d.renderValue(tw, v.MapIndex(key), level+1, visited)
 		} else {
 			// do not indent, render key and type
-			fmt.Fprintf(tw, "%s	%s	=> ", d.ApplyFormat(ColorDarkTeal, keyStr), formattedType)
+			fmt.Fprintf(tw, "%s %s => ", d.ApplyFormat(ColorDarkTeal, keyStr), formattedType)
 			// recursively print the array value itself, same indent level
 			d.renderValue(tw, v.MapIndex(key), level, visited)
 		}
@@ -659,15 +672,17 @@ func (d *Dumper) renderTypeMethods(tw *tabwriter.Writer, t reflect.Type, level i
 		symbol := d.ApplyFormat(ColorDarkTeal, "⦿ ")
 		methodName := d.ApplyFormat(ColorMutedBlue, m.Name)
 		methodType := d.formatType(m.Func, false)
-		d.renderIndent(tw, level, symbol+methodName+"\t"+methodType)
-		if d.config.ShowMetaInformation {
-			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, " |Method|"))
+		renderMethod := fmt.Sprintf("%s%s\t %s", symbol, methodName, methodType)
+		if methodType == "" {
+			renderMethod = fmt.Sprintf("%s%s", symbol, methodName)
 		}
+		d.renderIndent(tw, level, renderMethod)
 		fmt.Fprintln(tw)
 	}
 }
 
-// asStringer checks if the value implements fmt.Stringer and returns its string representation.
+// asStringer checks if the value implements the fmt.Stringer and returns its
+// string representation.
 func (d *Dumper) asStringerInterface(v reflect.Value) string {
 	val := v
 	if !val.CanInterface() {
@@ -687,7 +702,8 @@ func (d *Dumper) asStringerInterface(v reflect.Value) string {
 	return ""
 }
 
-// asErrorInterface checks if the value implements fmt.Stringer and returns its string representation.
+// asErrorInterface checks if the value implements the std error and returns
+// its string representation.
 func (d *Dumper) asErrorInterface(v reflect.Value) string {
 	val := v
 	if !val.CanInterface() {
