@@ -681,6 +681,7 @@ func (d *Dumper) renderMap(sb *strings.Builder, v reflect.Value, level int, visi
 			maxTypeLen = utf8.RuneCountInString(typeName)
 		}
 	}
+
 	for i, key := range keys {
 		if i >= d.config.MaxItems {
 			d.renderIndent(sb, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)"))
@@ -755,14 +756,25 @@ func (d *Dumper) renderIndent(sb *strings.Builder, indentLevel int, text string)
 }
 
 func (d *Dumper) renderTypeMethods(sb *strings.Builder, t reflect.Type, level int) {
+	// First we do a pre-pass and calculate the lengthiest method name
+	maxNameLen := 0
+	for _, m := range findTypeMethods(t) {
+		keyStr := m.Name
+		if utf8.RuneCountInString(keyStr) > maxNameLen {
+			maxNameLen = utf8.RuneCountInString(keyStr)
+		}
+	}
+	maxNameLen += 2 // for visibility symbol
+
 	for _, m := range findTypeMethods(t) {
 		// print visibility and symbol name
+		unformattedNameLen := utf8.RuneCountInString(m.Name) + 2
 		symbol := d.ApplyFormat(ColorDarkTeal, "⦿ ")
 		methodName := d.ApplyFormat(ColorMutedBlue, m.Name)
 		methodType := d.formatType(m.Func, false)
-		renderMethod := fmt.Sprintf("%s%s\t %s", symbol, methodName, methodType)
+		renderMethod := fmt.Sprintf("%s  %s", padRight(symbol+methodName, unformattedNameLen, maxNameLen), methodType)
 		if methodType == "" {
-			renderMethod = fmt.Sprintf("%s%s", symbol, methodName)
+			renderMethod = symbol + methodName
 		}
 		d.renderIndent(sb, level, renderMethod)
 		fmt.Fprintln(sb)
