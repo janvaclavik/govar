@@ -159,7 +159,7 @@ func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
 				length += 2 // comma and space
 			}
 			name := t.Field(i).Name
-			length += len(name) + 4 + d.estimatedInlineLength(v.Field(i)) // Name => val
+			length += 2 + len(name) + 4 + d.estimatedInlineLength(v.Field(i)) // Indicator Name => val
 			if d.config.ShowTypes {
 				length += len(v.Field(i).Type().String()) + 1 // type len + whitespace
 			}
@@ -208,9 +208,9 @@ func (d *Dumper) formatType(v reflect.Value, isInCollection bool) string {
 	vKind := v.Kind()
 	expectedType := ""
 	if vKind == reflect.Array || vKind == reflect.Slice || vKind == reflect.Map || vKind == reflect.Struct || vKind == reflect.Interface {
-		expectedType = " " + d.ApplyFormat(ColorDarkGray, v.Type().String())
+		expectedType = d.ApplyFormat(ColorDarkGray, v.Type().String())
 	} else if !isInCollection {
-		expectedType = " " + d.ApplyFormat(ColorDarkGray, v.Type().String())
+		expectedType = d.ApplyFormat(ColorDarkGray, v.Type().String())
 	}
 
 	// if element type is just "any", print the actual variable type
@@ -532,16 +532,17 @@ func (d *Dumper) renderStruct(tw *tabwriter.Writer, v reflect.Value, level int, 
 		}
 		symbol = d.ApplyFormat(ColorDarkGoBlue, symbol)
 		fieldName := d.ApplyFormat(ColorLightTeal, field.Name)
+
+		formattedType := d.formatType(fieldVal, false)
 		if !d.shouldRenderInline(v) {
 			// print visibility and symbol name, with indent
 			d.renderIndent(tw, level+1, symbol+fieldName)
+			fmt.Fprintf(tw, "	%s	=>	", formattedType)
 		} else {
 			// inline render of the field
 			fmt.Fprintf(tw, symbol+fieldName)
+			fmt.Fprintf(tw, " %s => ", formattedType)
 		}
-		// print field type signature
-		formattedType := d.formatType(fieldVal, false)
-		fmt.Fprintf(tw, "	%s	=> ", formattedType)
 
 		// Try the stringer interface on this struct field first
 		if str := d.asStringerInterface(fieldVal); str != "" {
@@ -605,12 +606,12 @@ func (d *Dumper) renderMap(tw *tabwriter.Writer, v reflect.Value, level int, vis
 
 		if !d.shouldRenderInline(v) {
 			// indent, render key and type
-			d.renderIndent(tw, level+1, fmt.Sprintf("%s%s	=> ", d.ApplyFormat(ColorDarkTeal, keyStr), formattedType))
+			d.renderIndent(tw, level+1, fmt.Sprintf("%s	%s	=> ", d.ApplyFormat(ColorDarkTeal, keyStr), formattedType))
 			// recursively print the array value itself, increase indent level
 			d.renderValue(tw, v.MapIndex(key), level+1, visited)
 		} else {
 			// do not indent, render key and type
-			fmt.Fprintf(tw, "%s%s	=> ", d.ApplyFormat(ColorDarkTeal, keyStr), formattedType)
+			fmt.Fprintf(tw, "%s	%s	=> ", d.ApplyFormat(ColorDarkTeal, keyStr), formattedType)
 			// recursively print the array value itself, same indent level
 			d.renderValue(tw, v.MapIndex(key), level, visited)
 		}
@@ -641,7 +642,7 @@ func (d *Dumper) renderString(tw *tabwriter.Writer, v reflect.Value) {
 
 func (d *Dumper) renderBool(tw *tabwriter.Writer, v reflect.Value) {
 	if v.Bool() {
-		fmt.Fprint(tw, d.ApplyFormat(ColorSeafoamGreen, "true"))
+		fmt.Fprint(tw, d.ApplyFormat(ColorGreen, "true"))
 	} else {
 		fmt.Fprint(tw, d.ApplyFormat(ColorCoralRed, "false"))
 	}
@@ -657,8 +658,8 @@ func (d *Dumper) renderTypeMethods(tw *tabwriter.Writer, t reflect.Type, level i
 		// print visibility and symbol name
 		symbol := d.ApplyFormat(ColorDarkTeal, "⦿ ")
 		methodName := d.ApplyFormat(ColorMutedBlue, m.Name)
-		methodType := "	" + d.ApplyFormat(ColorDarkGray, m.Func.Type().String())
-		d.renderIndent(tw, level, symbol+methodName+methodType)
+		methodType := d.formatType(m.Func, false)
+		d.renderIndent(tw, level, symbol+methodName+"\t"+methodType)
 		if d.config.ShowMetaInformation {
 			fmt.Fprint(tw, d.ApplyFormat(ColorDimGray, " |Method|"))
 		}
