@@ -41,8 +41,12 @@ func NewDumper(cfg DumperConfig) *Dumper {
 
 // Dump prints the values to stdout with colorized output.
 func (d *Dumper) Dump(vs ...any) {
-	// Enable HTML coloring
-	d.Formatter = ANSIcolorFormatter{}
+	// Enable coloring
+	if d.config.UseColors {
+		d.Formatter = ANSIcolorFormatter{}
+	} else {
+		d.Formatter = PlainFormatter{}
+	}
 	sb := &strings.Builder{}
 	d.renderHeader(sb)
 	d.renderAllValues(sb, vs...)
@@ -51,6 +55,12 @@ func (d *Dumper) Dump(vs ...any) {
 
 // Fdump writes the formatted dump of values to the given io.Writer.
 func (d *Dumper) Fdump(w io.Writer, vs ...any) {
+	// Enable coloring
+	if d.config.UseColors {
+		d.Formatter = ANSIcolorFormatter{}
+	} else {
+		d.Formatter = PlainFormatter{}
+	}
 	sb := &strings.Builder{}
 	d.renderHeader(sb)
 	d.renderAllValues(sb, vs...)
@@ -59,6 +69,12 @@ func (d *Dumper) Fdump(w io.Writer, vs ...any) {
 
 // Sdump dumps the values as a string with colorized output.
 func (d *Dumper) Sdump(vs ...any) string {
+	// Enable coloring
+	if d.config.UseColors {
+		d.Formatter = ANSIcolorFormatter{}
+	} else {
+		d.Formatter = PlainFormatter{}
+	}
 	sb := &strings.Builder{}
 	d.renderHeader(sb)
 	d.renderAllValues(sb, vs...)
@@ -68,7 +84,7 @@ func (d *Dumper) Sdump(vs ...any) string {
 // HTMLdump dumps the values as HTML inside a <pre> tag with colorized output.
 func (d *Dumper) SdumpHTML(vs ...any) string {
 	// Enable HTML coloring
-	d.Formatter = HTMLformatter{}
+	d.Formatter = HTMLformatter{HTMLtagToken: d.config.HTMLtagToken, UseColors: d.config.UseColors}
 
 	sb := &strings.Builder{}
 	sb.WriteString(`<pre class="govar" style="background-color:black; color:white; padding:4px; border-radius: 4px">` + "\n")

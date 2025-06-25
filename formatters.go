@@ -21,8 +21,15 @@ func (f ANSIcolorFormatter) ApplyFormat(code string, str string) string {
 	return code + str + ColorReset
 }
 
-type HTMLformatter struct{}
+type HTMLformatter struct {
+	HTMLtagToken string
+	UseColors    bool
+}
 
 func (f HTMLformatter) ApplyFormat(code string, str string) string {
-	return fmt.Sprintf(`<span style="color:%s">%s</span>`, ColorPaletteHTML[code], html.EscapeString(str))
+	if f.UseColors {
+		return fmt.Sprintf(`<%s style="color:%s">%s</%s>`, f.HTMLtagToken, ColorPaletteHTML[code], html.EscapeString(str), f.HTMLtagToken)
+	} else {
+		return fmt.Sprintf(`<%s style="color:#fefefe">%s</%s>`, f.HTMLtagToken, html.EscapeString(str), f.HTMLtagToken)
+	}
 }
