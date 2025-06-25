@@ -148,6 +148,8 @@ func main() {
 
 ## ⚖️ Comparison with other tools
 
+- "No tabwriter hacks — govar produces true structured output, not hacked-together tables."
+
 TODO
 
 ## 🧩 License
