@@ -39,6 +39,12 @@ func NewDumper(cfg DumperConfig) *Dumper {
 	return &Dumper{nextRefID: 1, referenceMap: map[uintptr]int{}, config: cfg, Formatter: PlainFormatter{}}
 }
 
+// Die is a debug function that prints the values and exits the program.
+func (d *Dumper) Die(vs ...any) {
+	Dump(vs...)
+	os.Exit(1)
+}
+
 // Dump prints the values to stdout with colorized output.
 func (d *Dumper) Dump(vs ...any) {
 	// Enable coloring
@@ -94,10 +100,46 @@ func (d *Dumper) SdumpHTML(vs ...any) string {
 	return sb.String()
 }
 
-// Die is a debug function that prints the values and exits the program.
-func (d *Dumper) Die(vs ...any) {
-	Dump(vs...)
-	os.Exit(1)
+// asStringer checks if the value implements the fmt.Stringer and returns its
+// string representation.
+func (d *Dumper) asStringerInterface(v reflect.Value) string {
+	val := v
+	if !val.CanInterface() {
+		val = forceExported(val)
+	}
+	if val.CanInterface() {
+		if s, ok := val.Interface().(fmt.Stringer); ok {
+			rv := reflect.ValueOf(s)
+			if rv.Kind() == reflect.Ptr && rv.IsNil() {
+				return d.ApplyFormat(ColorCoralRed, "<nil>")
+			}
+			str := d.stringEscape(s.String())
+			str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorGoldenrod, `"`)
+			return str
+		}
+	}
+	return ""
+}
+
+// asErrorInterface checks if the value implements the std error and returns
+// its string representation.
+func (d *Dumper) asErrorInterface(v reflect.Value) string {
+	val := v
+	if !val.CanInterface() {
+		val = forceExported(val)
+	}
+	if val.CanInterface() {
+		if e, ok := val.Interface().(error); ok {
+			rv := reflect.ValueOf(e)
+			if rv.Kind() == reflect.Ptr && rv.IsNil() {
+				return d.ApplyFormat(ColorCoralRed, "<nil>")
+			}
+			str := d.stringEscape(e.Error())
+			str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorCoralRed, str) + d.ApplyFormat(ColorGoldenrod, `"`)
+			return str
+		}
+	}
+	return ""
 }
 
 func (d *Dumper) estimatedInlineLength(v reflect.Value) int {
@@ -202,48 +244,6 @@ func (d *Dumper) isSimpleStruct(v reflect.Value) bool {
 	return true
 }
 
-// Returns a string representation for a value type (and handle any type)
-func (d *Dumper) formatType(v reflect.Value, isInCollection bool) string {
-	if !d.config.ShowTypes {
-		return ""
-	}
-
-	return d.ApplyFormat(ColorDarkGray, d.formatTypeNoColors(v, isInCollection))
-}
-
-// Returns a string representation for a value type (and handle any type)
-func (d *Dumper) formatTypeNoColors(v reflect.Value, isInCollection bool) string {
-	if !d.config.ShowTypes {
-		return ""
-	}
-
-	if !v.IsValid() {
-		return "invalid"
-	}
-
-	// print element type signature
-	vKind := v.Kind()
-	expectedType := ""
-	if vKind == reflect.Interface {
-		expectedType = "⧉ " + v.Type().String()
-	} else if vKind == reflect.Array || vKind == reflect.Slice || vKind == reflect.Map || vKind == reflect.Struct {
-		expectedType = v.Type().String()
-	} else if !isInCollection {
-		expectedType = v.Type().String()
-	}
-
-	// if element type is an interface we can show the actual variable type
-	actualType := ""
-	if vKind == reflect.Interface && !v.IsNil() {
-		actualType = "(" + v.Elem().Type().String() + ")"
-	}
-	formattedType := expectedType + actualType
-
-	// Modernize the 'interface {}' to 'any'
-	formattedType = strings.ReplaceAll(formattedType, "interface {}", "any")
-	return formattedType
-}
-
 func (d *Dumper) formatMapKeyAsIndex(k reflect.Value) string {
 	var keyFormatted string
 	if d.isSimpleMapKey(k) {
@@ -273,196 +273,6 @@ func (d *Dumper) formatMapKeyAsIndex(k reflect.Value) string {
 	}
 
 	return keyFormatted
-}
-
-// renderHeader prints the header for the dump output, including the file and line number.
-func (d *Dumper) renderHeader(out io.Writer) {
-	file, line, govarFuncName := findCallerInStack()
-	if file == "" {
-		return
-	}
-
-	relPath := file
-	if wd, err := os.Getwd(); err == nil {
-		if rel, err := filepath.Rel(wd, file); err == nil {
-			relPath = rel
-		}
-	}
-
-	headerTitle := d.ApplyFormat(ColorGoBlue, "[>] "+govarFuncName)
-	headerLocation := d.ApplyFormat(ColorSlateGray, fmt.Sprintf("  ⟵  %s:%d", relPath, line))
-	header := headerTitle + headerLocation
-	fmt.Fprintln(out, header)
-}
-
-func (d *Dumper) metaHint(msg string, ico string) string {
-	if ico != "" {
-		return d.ApplyFormat(ColorDimGray, fmt.Sprintf("|%s %s| ", ico, msg))
-	}
-	return d.ApplyFormat(ColorDimGray, fmt.Sprintf("|%s| ", msg))
-}
-
-// renderAllValues writes all the values to the stringbuilder, handling references and indentation.
-func (d *Dumper) renderAllValues(sb *strings.Builder, vs ...any) {
-	d.referenceMap = map[uintptr]int{} // reset each time
-	visited := map[uintptr]bool{}
-	for _, v := range vs {
-		rv := reflect.ValueOf(v)
-		rv = makeAddressable(rv)
-
-		// Render value's type signature
-		fmt.Fprint(sb, d.formatType(rv, false))
-		// On the zero level, if types are ON, render the "mapping to" symbol
-		if d.config.ShowTypes {
-			fmt.Fprint(sb, " => ")
-		}
-		// Render the value itself
-		d.renderValue(sb, rv, 0, visited)
-
-		fmt.Fprintln(sb)
-	}
-}
-
-func (d *Dumper) wrapAndRender(sb *strings.Builder, renderVal string, t reflect.Type, level int) {
-	if d.config.EmbedTypeMethods && len(findTypeMethods(t)) > 0 {
-		// There are methods on this type, we need to wrap it
-		fmt.Fprintln(sb, "{")
-		renderVal := fmt.Sprintf("=> %s\n", renderVal)
-		d.renderIndent(sb, level+1, renderVal)
-		d.renderTypeMethods(sb, t, level+1, 0)
-		d.renderIndent(sb, level, "")
-		fmt.Fprint(sb, "}")
-	} else {
-		// Do not wrap, simply print the value
-		fmt.Fprint(sb, renderVal)
-	}
-}
-
-// renderValue recursively writes the value with indentation and handles references.
-func (d *Dumper) renderValue(sb *strings.Builder, v reflect.Value, level int, visited map[uintptr]bool) {
-	if level > d.config.MaxDepth {
-		fmt.Fprint(sb, d.ApplyFormat(ColorSlateGray, "… (max depth reached)"))
-		return
-	}
-	if !v.IsValid() {
-		fmt.Fprint(sb, d.ApplyFormat(ColorRed, "<invalid>"))
-		return
-	}
-
-	if isNil(v) {
-		fmt.Fprint(sb, d.ApplyFormat(ColorCoralRed, "<nil>"))
-		return
-	}
-
-	if v.Kind() != reflect.Interface {
-		// check for concrete interface (std fmt.Stringer) representation
-		if str := d.asStringerInterface(v); str != "" {
-			if d.config.ShowMetaInformation {
-				fmt.Fprint(sb, d.metaHint("as Stringer", ""))
-			}
-			fmt.Fprint(sb, str+" ")
-			return
-		}
-
-		// check for concrete interface (std error) representation
-		if str := d.asErrorInterface(v); str != "" {
-			if d.config.ShowMetaInformation {
-				fmt.Fprint(sb, d.metaHint("as error", ""))
-			}
-			fmt.Fprint(sb, str+" ")
-			return
-		}
-	}
-
-	switch v.Kind() {
-	case reflect.Ptr:
-		d.renderPointer(sb, v, level, visited)
-	case reflect.Interface:
-		// Continue with rendering the value that the interface contains
-		d.renderValue(sb, v.Elem(), level, visited)
-	case reflect.UnsafePointer:
-		fmt.Fprint(sb, d.ApplyFormat(ColorSlateGray, fmt.Sprintf("unsafe.Pointer(%#x)", v.Pointer())))
-	case reflect.Bool:
-		renderVal := d.formatBool(v)
-		d.wrapAndRender(sb, renderVal, v.Type(), level)
-	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		renderVal := d.ApplyFormat(ColorSkyBlue, fmt.Sprint(v.Int()))
-		d.wrapAndRender(sb, renderVal, v.Type(), level)
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		renderVal := d.ApplyFormat(ColorSkyBlue, fmt.Sprint(v.Uint()))
-		d.wrapAndRender(sb, renderVal, v.Type(), level)
-	case reflect.Float32, reflect.Float64:
-		renderVal := d.ApplyFormat(ColorSkyBlue, fmt.Sprintf("%f", v.Float()))
-		d.wrapAndRender(sb, renderVal, v.Type(), level)
-	case reflect.Complex64, reflect.Complex128:
-		renderVal := d.ApplyFormat(ColorSkyBlue, fmt.Sprintf("%v", v.Complex()))
-		d.wrapAndRender(sb, renderVal, v.Type(), level)
-	case reflect.String:
-		renderVal := d.formatString(v)
-		d.wrapAndRender(sb, renderVal, v.Type(), level)
-	case reflect.Struct:
-		d.renderStruct(sb, v, level, visited)
-	case reflect.Map:
-		renderVal := d.formatMap(v, level, visited)
-		d.wrapAndRender(sb, renderVal, v.Type(), level)
-	case reflect.Slice, reflect.Array:
-		renderVal := d.formatArrayOrSlice(v, level, visited)
-		d.wrapAndRender(sb, renderVal, v.Type(), level)
-	case reflect.Func:
-		renderVal := d.formatFunc(v)
-		d.wrapAndRender(sb, renderVal, v.Type(), level)
-	case reflect.Chan:
-		renderVal := d.formatChan(v)
-		d.wrapAndRender(sb, renderVal, v.Type(), level)
-	default:
-		// Should be unreachable - all reflect.Kind cases are handled
-		fmt.Fprintln(sb, "[WARNING] unknown reflect.Kind, rendering not implemented")
-	}
-}
-
-func (d *Dumper) renderPointer(sb *strings.Builder, v reflect.Value, level int, visited map[uintptr]bool) {
-	// If a pointer type is addressable and known, show a reference marker
-	// If a pointer type is addressable and new, store it in the reference map
-	if v.CanAddr() {
-		ptr := v.Pointer()
-		if id, ok := d.referenceMap[ptr]; ok {
-			fmt.Fprintf(sb, d.ApplyFormat(ColorSlateGray, "↩︎ &%d"), id)
-			return
-		} else {
-			d.referenceMap[ptr] = d.nextRefID
-			d.nextRefID++
-		}
-	}
-	// Continue with rendering the value that the pointer points to
-	d.renderValue(sb, v.Elem(), level, visited)
-}
-
-func (d *Dumper) formatChan(v reflect.Value) string {
-	if v.IsNil() {
-		return d.ApplyFormat(ColorCoralRed, "<nil>")
-	} else {
-		symbol := d.ApplyFormat(ColorGoldenrod, "⮁")
-		chDir := v.Type().ChanDir().String()
-		if chDir == "chan<-" {
-			symbol = d.ApplyFormat(ColorGoBlue, "🡹")
-		} else if chDir == "<-chan" {
-			symbol = d.ApplyFormat(ColorGreen, "🢃")
-		}
-		result := ""
-		if d.config.ShowMetaInformation {
-			result = fmt.Sprint(d.metaHint(fmt.Sprintf("B:%d", v.Cap()), ""))
-		}
-		result = result + fmt.Sprintf("%s %s%s", symbol, d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorLightTeal, fmt.Sprintf("%#x", v.Pointer())))
-		return result
-	}
-}
-
-func (d *Dumper) formatFunc(v reflect.Value) string {
-	funName := d.ApplyFormat(ColorLightTeal, getFunctionName(v))
-	if d.config.ShowMetaInformation {
-		funName = fmt.Sprint(d.metaHint(fmt.Sprintf("func@%#x", v.Pointer()), "")) + funName
-	}
-	return funName
 }
 
 func (d *Dumper) formatArrayOrSlice(v reflect.Value, level int, visited map[uintptr]bool) string {
@@ -557,6 +367,255 @@ func (d *Dumper) formatArrayOrSlice(v reflect.Value, level int, visited map[uint
 	fmt.Fprint(sb, "]")
 
 	return sb.String()
+}
+
+func (d *Dumper) formatChan(v reflect.Value) string {
+	if v.IsNil() {
+		return d.ApplyFormat(ColorCoralRed, "<nil>")
+	} else {
+		symbol := d.ApplyFormat(ColorGoldenrod, "⮁")
+		chDir := v.Type().ChanDir().String()
+		if chDir == "chan<-" {
+			symbol = d.ApplyFormat(ColorGoBlue, "🡹")
+		} else if chDir == "<-chan" {
+			symbol = d.ApplyFormat(ColorGreen, "🢃")
+		}
+		result := ""
+		if d.config.ShowMetaInformation {
+			result = fmt.Sprint(d.metaHint(fmt.Sprintf("B:%d", v.Cap()), ""))
+		}
+		result = result + fmt.Sprintf("%s %s%s", symbol, d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorLightTeal, fmt.Sprintf("%#x", v.Pointer())))
+		return result
+	}
+}
+
+func (d *Dumper) formatFunc(v reflect.Value) string {
+	funName := d.ApplyFormat(ColorLightTeal, getFunctionName(v))
+	if d.config.ShowMetaInformation {
+		funName = fmt.Sprint(d.metaHint(fmt.Sprintf("func@%#x", v.Pointer()), "")) + funName
+	}
+	return funName
+}
+
+func (d *Dumper) formatBool(v reflect.Value) string {
+	if v.Bool() {
+		return d.ApplyFormat(ColorGreen, "true")
+	} else {
+		return d.ApplyFormat(ColorCoralRed, "false")
+	}
+}
+
+func (d *Dumper) formatMap(v reflect.Value, level int, visited map[uintptr]bool) string {
+	sb := &strings.Builder{}
+
+	if d.config.ShowMetaInformation {
+		mapLen := fmt.Sprintf("%d", v.Len())
+		d.metaHint(mapLen, "")
+		fmt.Fprint(sb, d.metaHint(mapLen, ""))
+	}
+	keys := v.MapKeys()
+
+	fmt.Fprint(sb, "[")
+
+	if d.shouldRenderInline(v) {
+		// INLINE RENDER
+		for i, key := range keys {
+			if i >= d.config.MaxItems {
+				d.renderIndent(sb, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)"))
+				break
+			}
+
+			// keyStr := fmt.Sprintf("%v", key.Interface())
+			keyStr := d.formatMapKeyAsIndex(key)
+
+			// print element type signature
+			formattedType := d.formatType(v.MapIndex(key), true)
+
+			// inline render
+			fmt.Fprintf(sb, "%s %s => ", d.ApplyFormat(ColorDarkTeal, keyStr), formattedType)
+			// recursively print the array value itself, same indent level
+			d.renderValue(sb, v.MapIndex(key), level, visited)
+
+			if i != v.Len()-1 {
+				fmt.Fprint(sb, ", ")
+			}
+		}
+
+	} else {
+		// BLOCK RENDER
+		fmt.Fprintln(sb)
+
+		// First we do a pre-pass and calculate the lengthiest key and type
+		maxKeyLen := 0
+		maxTypeLen := 0
+		for i, key := range keys {
+			if i >= d.config.MaxItems {
+				break
+			}
+			keyStr := d.formatMapKeyAsIndex(key)
+			if utf8.RuneCountInString(keyStr) > maxKeyLen {
+				maxKeyLen = utf8.RuneCountInString(keyStr)
+			}
+			typeName := d.formatTypeNoColors(v.MapIndex(key), true)
+			if utf8.RuneCountInString(typeName) > maxTypeLen {
+				maxTypeLen = utf8.RuneCountInString(typeName)
+			}
+		}
+
+		for i, key := range keys {
+			if i >= d.config.MaxItems {
+				d.renderIndent(sb, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)"))
+				break
+			}
+
+			keyStr := d.formatMapKeyAsIndex(key)
+			// print element type signature
+			formattedType := d.formatType(v.MapIndex(key), true)
+
+			keyRender := fmt.Sprintf("%s => ", padRight(keyStr, utf8.RuneCountInString(keyStr), maxKeyLen))
+
+			if formattedType != "" {
+				unformattedTypeLen := utf8.RuneCountInString(d.formatTypeNoColors(v.MapIndex(key), true))
+				paddedKey := padRight(keyStr, utf8.RuneCountInString(keyStr), maxKeyLen)
+				paddedType := padRight(formattedType, unformattedTypeLen, maxTypeLen)
+				keyRender = fmt.Sprintf("%s  %s => ", d.ApplyFormat(ColorDarkTeal, paddedKey), paddedType)
+			}
+
+			d.renderIndent(sb, level+1, keyRender)
+			// recursively print the array value itself, increase indent level
+			d.renderValue(sb, v.MapIndex(key), level+1, visited)
+
+			fmt.Fprintln(sb)
+		}
+
+		d.renderIndent(sb, level, "")
+	}
+
+	fmt.Fprint(sb, "]")
+
+	return sb.String()
+}
+
+func (d *Dumper) formatString(v reflect.Value) string {
+	strLen := utf8.RuneCountInString(v.String())
+	str := d.stringEscape(v.String())
+	str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorGoldenrod, `"`)
+	if d.config.ShowMetaInformation {
+		str = d.metaHint(fmt.Sprintf("R:%d", strLen), "") + str
+	}
+	return str
+}
+
+// Returns a string representation for a value type (and handle any type)
+func (d *Dumper) formatType(v reflect.Value, isInCollection bool) string {
+	if !d.config.ShowTypes {
+		return ""
+	}
+
+	return d.ApplyFormat(ColorDarkGray, d.formatTypeNoColors(v, isInCollection))
+}
+
+// Returns a string representation for a value type (and handle any type)
+func (d *Dumper) formatTypeNoColors(v reflect.Value, isInCollection bool) string {
+	if !d.config.ShowTypes {
+		return ""
+	}
+
+	if !v.IsValid() {
+		return "invalid"
+	}
+
+	// print element type signature
+	vKind := v.Kind()
+	expectedType := ""
+	if vKind == reflect.Interface {
+		expectedType = "⧉ " + v.Type().String()
+	} else if vKind == reflect.Array || vKind == reflect.Slice || vKind == reflect.Map || vKind == reflect.Struct {
+		expectedType = v.Type().String()
+	} else if !isInCollection {
+		expectedType = v.Type().String()
+	}
+
+	// if element type is an interface we can show the actual variable type
+	actualType := ""
+	if vKind == reflect.Interface && !v.IsNil() {
+		actualType = "(" + v.Elem().Type().String() + ")"
+	}
+	formattedType := expectedType + actualType
+
+	// Modernize the 'interface {}' to 'any'
+	formattedType = strings.ReplaceAll(formattedType, "interface {}", "any")
+	return formattedType
+}
+
+func (d *Dumper) metaHint(msg string, ico string) string {
+	if ico != "" {
+		return d.ApplyFormat(ColorDimGray, fmt.Sprintf("|%s %s| ", ico, msg))
+	}
+	return d.ApplyFormat(ColorDimGray, fmt.Sprintf("|%s| ", msg))
+}
+
+// renderAllValues writes all the values to the stringbuilder, handling references and indentation.
+func (d *Dumper) renderAllValues(sb *strings.Builder, vs ...any) {
+	d.referenceMap = map[uintptr]int{} // reset each time
+	visited := map[uintptr]bool{}
+	for _, v := range vs {
+		rv := reflect.ValueOf(v)
+		rv = makeAddressable(rv)
+
+		// Render value's type signature
+		fmt.Fprint(sb, d.formatType(rv, false))
+		// On the zero level, if types are ON, render the "mapping to" symbol
+		if d.config.ShowTypes {
+			fmt.Fprint(sb, " => ")
+		}
+		// Render the value itself
+		d.renderValue(sb, rv, 0, visited)
+
+		fmt.Fprintln(sb)
+	}
+}
+
+// renderHeader prints the header for the dump output, including the file and line number.
+func (d *Dumper) renderHeader(out io.Writer) {
+	file, line, govarFuncName := findCallerInStack()
+	if file == "" {
+		return
+	}
+
+	relPath := file
+	if wd, err := os.Getwd(); err == nil {
+		if rel, err := filepath.Rel(wd, file); err == nil {
+			relPath = rel
+		}
+	}
+
+	headerTitle := d.ApplyFormat(ColorGoBlue, "[>] "+govarFuncName)
+	headerLocation := d.ApplyFormat(ColorSlateGray, fmt.Sprintf("  ⟵  %s:%d", relPath, line))
+	header := headerTitle + headerLocation
+	fmt.Fprintln(out, header)
+}
+
+// renderIndent writes indented text to the stringbuilder.
+func (d *Dumper) renderIndent(sb *strings.Builder, indentLevel int, text string) {
+	fmt.Fprint(sb, strings.Repeat(" ", indentLevel*d.config.IndentWidth)+text)
+}
+
+func (d *Dumper) renderPointer(sb *strings.Builder, v reflect.Value, level int, visited map[uintptr]bool) {
+	// If a pointer type is addressable and known, show a reference marker
+	// If a pointer type is addressable and new, store it in the reference map
+	if v.CanAddr() {
+		ptr := v.Pointer()
+		if id, ok := d.referenceMap[ptr]; ok {
+			fmt.Fprintf(sb, d.ApplyFormat(ColorSlateGray, "↩︎ &%d"), id)
+			return
+		} else {
+			d.referenceMap[ptr] = d.nextRefID
+			d.nextRefID++
+		}
+	}
+	// Continue with rendering the value that the pointer points to
+	d.renderValue(sb, v.Elem(), level, visited)
 }
 
 func (d *Dumper) renderHexdump(sb *strings.Builder, v reflect.Value, level int) {
@@ -692,120 +751,6 @@ func (d *Dumper) renderStruct(sb *strings.Builder, v reflect.Value, level int, v
 	fmt.Fprint(sb, "}")
 }
 
-func (d *Dumper) formatMap(v reflect.Value, level int, visited map[uintptr]bool) string {
-	sb := &strings.Builder{}
-
-	if d.config.ShowMetaInformation {
-		mapLen := fmt.Sprintf("%d", v.Len())
-		d.metaHint(mapLen, "")
-		fmt.Fprint(sb, d.metaHint(mapLen, ""))
-	}
-	keys := v.MapKeys()
-
-	fmt.Fprint(sb, "[")
-
-	if d.shouldRenderInline(v) {
-		// INLINE RENDER
-		for i, key := range keys {
-			if i >= d.config.MaxItems {
-				d.renderIndent(sb, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)"))
-				break
-			}
-
-			// keyStr := fmt.Sprintf("%v", key.Interface())
-			keyStr := d.formatMapKeyAsIndex(key)
-
-			// print element type signature
-			formattedType := d.formatType(v.MapIndex(key), true)
-
-			// inline render
-			fmt.Fprintf(sb, "%s %s => ", d.ApplyFormat(ColorDarkTeal, keyStr), formattedType)
-			// recursively print the array value itself, same indent level
-			d.renderValue(sb, v.MapIndex(key), level, visited)
-
-			if i != v.Len()-1 {
-				fmt.Fprint(sb, ", ")
-			}
-		}
-
-	} else {
-		// BLOCK RENDER
-		fmt.Fprintln(sb)
-
-		// First we do a pre-pass and calculate the lengthiest key and type
-		maxKeyLen := 0
-		maxTypeLen := 0
-		for i, key := range keys {
-			if i >= d.config.MaxItems {
-				break
-			}
-			keyStr := d.formatMapKeyAsIndex(key)
-			if utf8.RuneCountInString(keyStr) > maxKeyLen {
-				maxKeyLen = utf8.RuneCountInString(keyStr)
-			}
-			typeName := d.formatTypeNoColors(v.MapIndex(key), true)
-			if utf8.RuneCountInString(typeName) > maxTypeLen {
-				maxTypeLen = utf8.RuneCountInString(typeName)
-			}
-		}
-
-		for i, key := range keys {
-			if i >= d.config.MaxItems {
-				d.renderIndent(sb, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)"))
-				break
-			}
-
-			keyStr := d.formatMapKeyAsIndex(key)
-			// print element type signature
-			formattedType := d.formatType(v.MapIndex(key), true)
-
-			keyRender := fmt.Sprintf("%s => ", padRight(keyStr, utf8.RuneCountInString(keyStr), maxKeyLen))
-
-			if formattedType != "" {
-				unformattedTypeLen := utf8.RuneCountInString(d.formatTypeNoColors(v.MapIndex(key), true))
-				paddedKey := padRight(keyStr, utf8.RuneCountInString(keyStr), maxKeyLen)
-				paddedType := padRight(formattedType, unformattedTypeLen, maxTypeLen)
-				keyRender = fmt.Sprintf("%s  %s => ", d.ApplyFormat(ColorDarkTeal, paddedKey), paddedType)
-			}
-
-			d.renderIndent(sb, level+1, keyRender)
-			// recursively print the array value itself, increase indent level
-			d.renderValue(sb, v.MapIndex(key), level+1, visited)
-
-			fmt.Fprintln(sb)
-		}
-
-		d.renderIndent(sb, level, "")
-	}
-
-	fmt.Fprint(sb, "]")
-
-	return sb.String()
-}
-
-func (d *Dumper) formatString(v reflect.Value) string {
-	strLen := utf8.RuneCountInString(v.String())
-	str := d.stringEscape(v.String())
-	str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorGoldenrod, `"`)
-	if d.config.ShowMetaInformation {
-		str = d.metaHint(fmt.Sprintf("R:%d", strLen), "") + str
-	}
-	return str
-}
-
-func (d *Dumper) formatBool(v reflect.Value) string {
-	if v.Bool() {
-		return d.ApplyFormat(ColorGreen, "true")
-	} else {
-		return d.ApplyFormat(ColorCoralRed, "false")
-	}
-}
-
-// renderIndent writes indented text to the stringbuilder.
-func (d *Dumper) renderIndent(sb *strings.Builder, indentLevel int, text string) {
-	fmt.Fprint(sb, strings.Repeat(" ", indentLevel*d.config.IndentWidth)+text)
-}
-
 func (d *Dumper) renderTypeMethods(sb *strings.Builder, t reflect.Type, level int, maxNameLen int) {
 	for _, m := range findTypeMethods(t) {
 		// print visibility and symbol name
@@ -822,46 +767,86 @@ func (d *Dumper) renderTypeMethods(sb *strings.Builder, t reflect.Type, level in
 	}
 }
 
-// asStringer checks if the value implements the fmt.Stringer and returns its
-// string representation.
-func (d *Dumper) asStringerInterface(v reflect.Value) string {
-	val := v
-	if !val.CanInterface() {
-		val = forceExported(val)
+// renderValue recursively writes the value with indentation and handles references.
+func (d *Dumper) renderValue(sb *strings.Builder, v reflect.Value, level int, visited map[uintptr]bool) {
+	if level > d.config.MaxDepth {
+		fmt.Fprint(sb, d.ApplyFormat(ColorSlateGray, "… (max depth reached)"))
+		return
 	}
-	if val.CanInterface() {
-		if s, ok := val.Interface().(fmt.Stringer); ok {
-			rv := reflect.ValueOf(s)
-			if rv.Kind() == reflect.Ptr && rv.IsNil() {
-				return d.ApplyFormat(ColorCoralRed, "<nil>")
-			}
-			str := d.stringEscape(s.String())
-			str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorGoldenrod, `"`)
-			return str
-		}
+	if !v.IsValid() {
+		fmt.Fprint(sb, d.ApplyFormat(ColorRed, "<invalid>"))
+		return
 	}
-	return ""
-}
 
-// asErrorInterface checks if the value implements the std error and returns
-// its string representation.
-func (d *Dumper) asErrorInterface(v reflect.Value) string {
-	val := v
-	if !val.CanInterface() {
-		val = forceExported(val)
+	if isNil(v) {
+		fmt.Fprint(sb, d.ApplyFormat(ColorCoralRed, "<nil>"))
+		return
 	}
-	if val.CanInterface() {
-		if e, ok := val.Interface().(error); ok {
-			rv := reflect.ValueOf(e)
-			if rv.Kind() == reflect.Ptr && rv.IsNil() {
-				return d.ApplyFormat(ColorCoralRed, "<nil>")
+
+	if v.Kind() != reflect.Interface {
+		// check for concrete interface (std fmt.Stringer) representation
+		if str := d.asStringerInterface(v); str != "" {
+			if d.config.ShowMetaInformation {
+				fmt.Fprint(sb, d.metaHint("as Stringer", ""))
 			}
-			str := d.stringEscape(e.Error())
-			str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorCoralRed, str) + d.ApplyFormat(ColorGoldenrod, `"`)
-			return str
+			fmt.Fprint(sb, str+" ")
+			return
+		}
+
+		// check for concrete interface (std error) representation
+		if str := d.asErrorInterface(v); str != "" {
+			if d.config.ShowMetaInformation {
+				fmt.Fprint(sb, d.metaHint("as error", ""))
+			}
+			fmt.Fprint(sb, str+" ")
+			return
 		}
 	}
-	return ""
+
+	switch v.Kind() {
+	case reflect.Ptr:
+		d.renderPointer(sb, v, level, visited)
+	case reflect.Interface:
+		// Continue with rendering the value that the interface contains
+		d.renderValue(sb, v.Elem(), level, visited)
+	case reflect.UnsafePointer:
+		fmt.Fprint(sb, d.ApplyFormat(ColorSlateGray, fmt.Sprintf("unsafe.Pointer(%#x)", v.Pointer())))
+	case reflect.Bool:
+		renderVal := d.formatBool(v)
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		renderVal := d.ApplyFormat(ColorSkyBlue, fmt.Sprint(v.Int()))
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		renderVal := d.ApplyFormat(ColorSkyBlue, fmt.Sprint(v.Uint()))
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
+	case reflect.Float32, reflect.Float64:
+		renderVal := d.ApplyFormat(ColorSkyBlue, fmt.Sprintf("%f", v.Float()))
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
+	case reflect.Complex64, reflect.Complex128:
+		renderVal := d.ApplyFormat(ColorSkyBlue, fmt.Sprintf("%v", v.Complex()))
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
+	case reflect.String:
+		renderVal := d.formatString(v)
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
+	case reflect.Struct:
+		d.renderStruct(sb, v, level, visited)
+	case reflect.Map:
+		renderVal := d.formatMap(v, level, visited)
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
+	case reflect.Slice, reflect.Array:
+		renderVal := d.formatArrayOrSlice(v, level, visited)
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
+	case reflect.Func:
+		renderVal := d.formatFunc(v)
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
+	case reflect.Chan:
+		renderVal := d.formatChan(v)
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
+	default:
+		// Should be unreachable - all reflect.Kind cases are handled
+		fmt.Fprintln(sb, "[WARNING] unknown reflect.Kind, rendering not implemented")
+	}
 }
 
 // shouldRenderInline determines if a value should be printed inline.
@@ -909,6 +894,21 @@ func (d *Dumper) stringEscape(str string) string {
 	)
 
 	return replacer.Replace(str)
+}
+
+func (d *Dumper) wrapAndRender(sb *strings.Builder, renderVal string, t reflect.Type, level int) {
+	if d.config.EmbedTypeMethods && len(findTypeMethods(t)) > 0 {
+		// There are methods on this type, we need to wrap it
+		fmt.Fprintln(sb, "{")
+		renderVal := fmt.Sprintf("=> %s\n", renderVal)
+		d.renderIndent(sb, level+1, renderVal)
+		d.renderTypeMethods(sb, t, level+1, 0)
+		d.renderIndent(sb, level, "")
+		fmt.Fprint(sb, "}")
+	} else {
+		// Do not wrap, simply print the value
+		fmt.Fprint(sb, renderVal)
+	}
 }
 
 func padRight(s string, unformattedWidth int, maxWidth int) string {
