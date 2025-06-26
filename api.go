@@ -8,7 +8,7 @@ func Fdump(w io.Writer, values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
 		MaxDepth:            15,
-		MaxItems:            100,
+		MaxItems:            150,
 		MaxStringLen:        10000,
 		MaxInlineLength:     80,
 		ShowTypes:           true,
@@ -28,7 +28,7 @@ func FdumpValues(w io.Writer, values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
 		MaxDepth:            15,
-		MaxItems:            100,
+		MaxItems:            150,
 		MaxStringLen:        10000,
 		MaxInlineLength:     80,
 		ShowTypes:           false,
@@ -48,7 +48,7 @@ func Die(values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
 		MaxDepth:            15,
-		MaxItems:            100,
+		MaxItems:            150,
 		MaxStringLen:        10000,
 		MaxInlineLength:     80,
 		ShowTypes:           true,
@@ -68,7 +68,7 @@ func Dump(values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
 		MaxDepth:            15,
-		MaxItems:            100,
+		MaxItems:            150,
 		MaxStringLen:        10000,
 		MaxInlineLength:     80,
 		ShowTypes:           true,
@@ -88,7 +88,7 @@ func DumpValues(values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
 		MaxDepth:            15,
-		MaxItems:            100,
+		MaxItems:            150,
 		MaxStringLen:        10000,
 		MaxInlineLength:     80,
 		ShowTypes:           false,
@@ -108,7 +108,7 @@ func Sdump(values ...any) string {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
 		MaxDepth:            15,
-		MaxItems:            100,
+		MaxItems:            150,
 		MaxStringLen:        10000,
 		MaxInlineLength:     80,
 		ShowTypes:           true,
@@ -128,7 +128,7 @@ func SdumpValues(values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
 		MaxDepth:            15,
-		MaxItems:            100,
+		MaxItems:            150,
 		MaxStringLen:        10000,
 		MaxInlineLength:     80,
 		ShowTypes:           false,
@@ -148,7 +148,7 @@ func SdumpHTML(values ...any) string {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
 		MaxDepth:            15,
-		MaxItems:            100,
+		MaxItems:            150,
 		MaxStringLen:        10000,
 		MaxInlineLength:     80,
 		ShowTypes:           true,
@@ -170,7 +170,7 @@ func SdumpHTMLValues(values ...any) string {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
 		MaxDepth:            15,
-		MaxItems:            100,
+		MaxItems:            150,
 		MaxStringLen:        10000,
 		MaxInlineLength:     80,
 		ShowTypes:           false,
