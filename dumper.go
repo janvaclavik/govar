@@ -29,9 +29,10 @@ type DumperConfig struct {
 }
 
 type Dumper struct {
-	nextRefID    int
-	referenceMap map[uintptr]int
-	config       DumperConfig
+	nextRefID       int
+	referenceCounts map[uintptr]int
+	referenceMap    map[uintptr]int
+	config          DumperConfig
 	Formatter
 }
 
@@ -555,17 +556,84 @@ func (d *Dumper) metaHint(msg string, ico string) string {
 	return d.ApplyFormat(ColorDimGray, fmt.Sprintf("|%s| ", msg))
 }
 
+// preScan recursively scans all possible references and builds
+// the referenceMap
+func (d *Dumper) preScan(v reflect.Value, visited map[uintptr]bool) {
+	// Handle invalid or zero values early
+	if !v.IsValid() {
+		return
+	}
+
+	// If it's a pointer or interface, we want the underlying value
+	switch v.Kind() {
+	case reflect.Pointer:
+		if v.IsNil() {
+			return
+		}
+
+		ptr := v.Pointer()
+		d.referenceCounts[ptr]++
+		if visited[ptr] {
+			return
+		}
+		visited[ptr] = true
+		d.preScan(v.Elem(), visited)
+		return
+	}
+
+	// Recurse into composite types
+	switch v.Kind() {
+	case reflect.Interface:
+		if v.IsNil() {
+			return
+		}
+
+		// Unwrap interface first
+		elem := v.Elem()
+		d.preScan(elem, visited)
+		return
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < v.Len(); i++ {
+			d.preScan(v.Index(i), visited)
+		}
+	case reflect.Map:
+		for _, key := range v.MapKeys() {
+			d.preScan(key, visited)
+			d.preScan(v.MapIndex(key), visited)
+		}
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			field := v.Field(i)
+			if field.CanInterface() {
+				d.preScan(field, visited)
+			}
+		}
+	}
+}
+
 // renderAllValues writes all the values to the stringbuilder, handling references and indentation.
 func (d *Dumper) renderAllValues(sb *strings.Builder, vs ...any) {
-	d.referenceMap = map[uintptr]int{} // reset each time
+	d.referenceMap = map[uintptr]int{}    // reset each time
+	d.referenceCounts = map[uintptr]int{} // reset each time
+	d.nextRefID = 1
 
-	// First pass: assign reference IDs
+	// First pass with preScan(): assign reference IDs
 	for _, v := range vs {
 		rv := reflect.ValueOf(v)
 		rv = makeAddressable(rv)
 		d.preScan(rv, map[uintptr]bool{}) // fresh map for each top-level value
 	}
 
+	// After preScan, loop through referenceCounts and assign refIDs only to those that are shared
+	// (more references than 1)
+	for ptr, count := range d.referenceCounts {
+		if count > 1 {
+			d.referenceMap[ptr] = d.nextRefID
+			d.nextRefID++
+		}
+	}
+
+	// Second pass: render the values
 	visited := map[uintptr]bool{}
 	for _, v := range vs {
 		rv := reflect.ValueOf(v)
@@ -648,61 +716,22 @@ func (d *Dumper) renderIndent(sb *strings.Builder, indentLevel int, text string)
 
 func (d *Dumper) renderPointer(sb *strings.Builder, v reflect.Value, level int, visited map[uintptr]bool) {
 	ptr := v.Pointer()
-	id, hasID := d.referenceMap[ptr]
-	if hasID {
+
+	// If this pointer is known (shared), use ↩︎ or anchor
+	if id, ok := d.referenceMap[ptr]; ok {
 		if visited[ptr] {
+			// Seen already, render as ↩︎
 			fmt.Fprintf(sb, d.ApplyFormat(ColorSlateGray, "↩︎ &%d"), id)
 			return
+		} else {
+			// First time seeing it, mark visited and render anchor
+			visited[ptr] = true
+			fmt.Fprintf(sb, d.ApplyFormat(ColorGoldenrod, "&%d "), id)
 		}
-		visited[ptr] = true
-		fmt.Fprintf(sb, d.ApplyFormat(ColorGoldenrod, "&%d "), id)
 	}
 
 	// Continue with rendering the value that the pointer points to
 	d.renderValue(sb, v.Elem(), level, visited)
-}
-
-// preScan recursively scans all possible references and builds
-// the referenceMap
-func (d *Dumper) preScan(v reflect.Value, visited map[uintptr]bool) {
-	if !v.IsValid() {
-		return
-	}
-	// If it's a pointer
-	if v.Kind() == reflect.Ptr && !v.IsNil() {
-		ptr := v.Pointer()
-		if visited[ptr] {
-			return
-		}
-		visited[ptr] = true
-		// Assign a reference ID if not done yet
-		if _, ok := d.referenceMap[ptr]; !ok {
-			d.referenceMap[ptr] = d.nextRefID
-			d.nextRefID++
-		}
-		d.preScan(v.Elem(), visited)
-		return
-	}
-
-	switch v.Kind() {
-	case reflect.Struct:
-		for i := range v.NumField() {
-			d.preScan(v.Field(i), visited)
-		}
-	case reflect.Slice, reflect.Array:
-		for i := range v.Len() {
-			d.preScan(v.Index(i), visited)
-		}
-	case reflect.Map:
-		for _, key := range v.MapKeys() {
-			d.preScan(key, visited)
-			d.preScan(v.MapIndex(key), visited)
-		}
-	case reflect.Interface:
-		if !v.IsNil() {
-			d.preScan(v.Elem(), visited)
-		}
-	}
 }
 
 func (d *Dumper) renderStruct(sb *strings.Builder, v reflect.Value, level int, visited map[uintptr]bool) {
