@@ -323,6 +323,21 @@ func (d *Dumper) renderAllValues(sb *strings.Builder, vs ...any) {
 	}
 }
 
+func (d *Dumper) wrapAndRender(sb *strings.Builder, renderVal string, t reflect.Type, level int) {
+	if d.config.EmbedTypeMethods && len(findTypeMethods(t)) > 0 {
+		// There are methods on this type, we need to wrap it
+		fmt.Fprintln(sb, "{")
+		renderVal := fmt.Sprintf("=> %s\n", renderVal)
+		d.renderIndent(sb, level+1, renderVal)
+		d.renderTypeMethods(sb, t, level+1, 0)
+		d.renderIndent(sb, level, "")
+		fmt.Fprint(sb, "}")
+	} else {
+		// Do not wrap, simply print the value
+		fmt.Fprint(sb, renderVal)
+	}
+}
+
 // renderValue recursively writes the value with indentation and handles references.
 func (d *Dumper) renderValue(sb *strings.Builder, v reflect.Value, level int, visited map[uintptr]bool) {
 	if level > d.config.MaxDepth {
@@ -363,33 +378,42 @@ func (d *Dumper) renderValue(sb *strings.Builder, v reflect.Value, level int, vi
 	case reflect.Ptr:
 		d.renderPointer(sb, v, level, visited)
 	case reflect.Interface:
-		// TODO: ...
 		// Continue with rendering the value that the interface contains
 		d.renderValue(sb, v.Elem(), level, visited)
 	case reflect.UnsafePointer:
 		fmt.Fprint(sb, d.ApplyFormat(ColorSlateGray, fmt.Sprintf("unsafe.Pointer(%#x)", v.Pointer())))
 	case reflect.Bool:
-		d.renderBool(sb, v)
+		renderVal := d.formatBool(v)
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-		fmt.Fprint(sb, d.ApplyFormat(ColorSkyBlue, fmt.Sprint(v.Int())))
+		renderVal := d.ApplyFormat(ColorSkyBlue, fmt.Sprint(v.Int()))
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-		fmt.Fprint(sb, d.ApplyFormat(ColorSkyBlue, fmt.Sprint(v.Uint())))
+		renderVal := d.ApplyFormat(ColorSkyBlue, fmt.Sprint(v.Uint()))
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
 	case reflect.Float32, reflect.Float64:
-		fmt.Fprint(sb, d.ApplyFormat(ColorSkyBlue, fmt.Sprintf("%f", v.Float())))
+		renderVal := d.ApplyFormat(ColorSkyBlue, fmt.Sprintf("%f", v.Float()))
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
 	case reflect.Complex64, reflect.Complex128:
-		fmt.Fprint(sb, d.ApplyFormat(ColorSkyBlue, fmt.Sprintf("%v", v.Complex())))
+		renderVal := d.ApplyFormat(ColorSkyBlue, fmt.Sprintf("%v", v.Complex()))
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
 	case reflect.String:
-		d.renderString(sb, v)
+		renderVal := d.formatString(v)
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
 	case reflect.Struct:
 		d.renderStruct(sb, v, level, visited)
 	case reflect.Map:
-		d.renderMap(sb, v, level, visited)
+		renderVal := d.formatMap(v, level, visited)
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
 	case reflect.Slice, reflect.Array:
-		d.renderArrayOrSlice(sb, v, level, visited)
+		renderVal := d.formatArrayOrSlice(v, level, visited)
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
 	case reflect.Func:
-		d.renderFunc(sb, v)
+		renderVal := d.formatFunc(v)
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
 	case reflect.Chan:
-		d.renderChan(sb, v)
+		renderVal := d.formatChan(v)
+		d.wrapAndRender(sb, renderVal, v.Type(), level)
 	default:
 		// Should be unreachable - all reflect.Kind cases are handled
 		fmt.Fprintln(sb, "[WARNING] unknown reflect.Kind, rendering not implemented")
@@ -413,33 +437,37 @@ func (d *Dumper) renderPointer(sb *strings.Builder, v reflect.Value, level int, 
 	d.renderValue(sb, v.Elem(), level, visited)
 }
 
-func (d *Dumper) renderChan(sb *strings.Builder, v reflect.Value) {
+func (d *Dumper) formatChan(v reflect.Value) string {
 	if v.IsNil() {
-		fmt.Fprint(sb, d.ApplyFormat(ColorCoralRed, "<nil>"))
+		return d.ApplyFormat(ColorCoralRed, "<nil>")
 	} else {
-		symbol := d.ApplyFormat(ColorGoldenrod, "⮁") // ▲ 🠕 ⯭ ▼ ⯯ ▦
+		symbol := d.ApplyFormat(ColorGoldenrod, "⮁")
 		chDir := v.Type().ChanDir().String()
 		if chDir == "chan<-" {
 			symbol = d.ApplyFormat(ColorGoBlue, "🡹")
 		} else if chDir == "<-chan" {
 			symbol = d.ApplyFormat(ColorGreen, "🢃")
 		}
+		result := ""
 		if d.config.ShowMetaInformation {
-			fmt.Fprint(sb, d.metaHint(fmt.Sprintf("B:%d", v.Cap()), ""))
+			result = fmt.Sprint(d.metaHint(fmt.Sprintf("B:%d", v.Cap()), ""))
 		}
-		fmt.Fprintf(sb, "%s %s%s", symbol, d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorLightTeal, fmt.Sprintf("%#x", v.Pointer())))
+		result = result + fmt.Sprintf("%s %s%s", symbol, d.ApplyFormat(ColorPink, "chan@"), d.ApplyFormat(ColorLightTeal, fmt.Sprintf("%#x", v.Pointer())))
+		return result
 	}
 }
 
-func (d *Dumper) renderFunc(sb *strings.Builder, v reflect.Value) {
+func (d *Dumper) formatFunc(v reflect.Value) string {
 	funName := d.ApplyFormat(ColorLightTeal, getFunctionName(v))
 	if d.config.ShowMetaInformation {
-		fmt.Fprint(sb, d.metaHint(fmt.Sprintf("func@%#x", v.Pointer()), ""))
+		funName = fmt.Sprint(d.metaHint(fmt.Sprintf("func@%#x", v.Pointer()), "")) + funName
 	}
-	fmt.Fprint(sb, funName)
+	return funName
 }
 
-func (d *Dumper) renderArrayOrSlice(sb *strings.Builder, v reflect.Value, level int, visited map[uintptr]bool) {
+func (d *Dumper) formatArrayOrSlice(v reflect.Value, level int, visited map[uintptr]bool) string {
+	sb := &strings.Builder{}
+
 	if d.config.ShowMetaInformation {
 		var listLen string
 		if v.Kind() == reflect.Array {
@@ -458,7 +486,6 @@ func (d *Dumper) renderArrayOrSlice(sb *strings.Builder, v reflect.Value, level 
 
 	if d.shouldRenderInline(v) {
 		// INLINE RENDER
-
 		for i := range v.Len() {
 			if i >= d.config.MaxItems {
 				d.renderIndent(sb, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)\n"))
@@ -468,7 +495,6 @@ func (d *Dumper) renderArrayOrSlice(sb *strings.Builder, v reflect.Value, level 
 			formattedType := d.formatType(v.Index(i), true)
 			indexSymbol := d.ApplyFormat(ColorDarkTeal, fmt.Sprintf("%d", i))
 
-			// inline render
 			fmt.Fprintf(sb, "%s%s => ", indexSymbol, formattedType)
 			// recursively print the array value itself, same indent level
 			d.renderValue(sb, v.Index(i), level, visited)
@@ -529,6 +555,8 @@ func (d *Dumper) renderArrayOrSlice(sb *strings.Builder, v reflect.Value, level 
 	}
 
 	fmt.Fprint(sb, "]")
+
+	return sb.String()
 }
 
 func (d *Dumper) renderHexdump(sb *strings.Builder, v reflect.Value, level int) {
@@ -664,7 +692,9 @@ func (d *Dumper) renderStruct(sb *strings.Builder, v reflect.Value, level int, v
 	fmt.Fprint(sb, "}")
 }
 
-func (d *Dumper) renderMap(sb *strings.Builder, v reflect.Value, level int, visited map[uintptr]bool) {
+func (d *Dumper) formatMap(v reflect.Value, level int, visited map[uintptr]bool) string {
+	sb := &strings.Builder{}
+
 	if d.config.ShowMetaInformation {
 		mapLen := fmt.Sprintf("%d", v.Len())
 		d.metaHint(mapLen, "")
@@ -749,23 +779,25 @@ func (d *Dumper) renderMap(sb *strings.Builder, v reflect.Value, level int, visi
 	}
 
 	fmt.Fprint(sb, "]")
+
+	return sb.String()
 }
 
-func (d *Dumper) renderString(sb *strings.Builder, v reflect.Value) {
+func (d *Dumper) formatString(v reflect.Value) string {
 	strLen := utf8.RuneCountInString(v.String())
 	str := d.stringEscape(v.String())
 	str = d.ApplyFormat(ColorGoldenrod, `"`) + d.ApplyFormat(ColorLime, str) + d.ApplyFormat(ColorGoldenrod, `"`)
 	if d.config.ShowMetaInformation {
-		fmt.Fprint(sb, d.metaHint(fmt.Sprintf("R:%d", strLen), ""))
+		str = d.metaHint(fmt.Sprintf("R:%d", strLen), "") + str
 	}
-	fmt.Fprint(sb, str)
+	return str
 }
 
-func (d *Dumper) renderBool(sb *strings.Builder, v reflect.Value) {
+func (d *Dumper) formatBool(v reflect.Value) string {
 	if v.Bool() {
-		fmt.Fprint(sb, d.ApplyFormat(ColorGreen, "true"))
+		return d.ApplyFormat(ColorGreen, "true")
 	} else {
-		fmt.Fprint(sb, d.ApplyFormat(ColorCoralRed, "false"))
+		return d.ApplyFormat(ColorCoralRed, "false")
 	}
 }
 
@@ -839,11 +871,6 @@ func (d *Dumper) shouldRenderInline(v reflect.Value) bool {
 		return true
 	}
 
-	// If type method embedding is ON and type has methods, cannot be inline
-	if d.config.EmbedTypeMethods && len(findTypeMethods(v.Type())) > 0 {
-		return false
-	}
-
 	switch v.Kind() {
 	case reflect.Array, reflect.Slice:
 		return isSimpleCollection(v) && v.Len() <= 10 && d.estimatedInlineLength(v) <= d.config.MaxInlineLength
@@ -852,6 +879,10 @@ func (d *Dumper) shouldRenderInline(v reflect.Value) bool {
 		return isSimpleMap(v) && v.Len() <= 10 && d.estimatedInlineLength(v) <= d.config.MaxInlineLength
 
 	case reflect.Struct:
+		// If type method embedding is ON and type has methods, struct cannot be inline
+		if d.config.EmbedTypeMethods && len(findTypeMethods(v.Type())) > 0 {
+			return false
+		}
 		return d.isSimpleStruct(v) && v.NumField() <= 10 && d.estimatedInlineLength(v) <= d.config.MaxInlineLength
 
 	default:
