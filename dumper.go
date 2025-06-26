@@ -558,6 +558,14 @@ func (d *Dumper) metaHint(msg string, ico string) string {
 // renderAllValues writes all the values to the stringbuilder, handling references and indentation.
 func (d *Dumper) renderAllValues(sb *strings.Builder, vs ...any) {
 	d.referenceMap = map[uintptr]int{} // reset each time
+
+	// First pass: assign reference IDs
+	for _, v := range vs {
+		rv := reflect.ValueOf(v)
+		rv = makeAddressable(rv)
+		d.preScan(rv, map[uintptr]bool{}) // fresh map for each top-level value
+	}
+
 	visited := map[uintptr]bool{}
 	for _, v := range vs {
 		rv := reflect.ValueOf(v)
@@ -596,28 +604,6 @@ func (d *Dumper) renderHeader(out io.Writer) {
 	fmt.Fprintln(out, header)
 }
 
-// renderIndent writes indented text to the stringbuilder.
-func (d *Dumper) renderIndent(sb *strings.Builder, indentLevel int, text string) {
-	fmt.Fprint(sb, strings.Repeat(" ", indentLevel*d.config.IndentWidth)+text)
-}
-
-func (d *Dumper) renderPointer(sb *strings.Builder, v reflect.Value, level int, visited map[uintptr]bool) {
-	// If a pointer type is addressable and known, show a reference marker
-	// If a pointer type is addressable and new, store it in the reference map
-	if v.CanAddr() {
-		ptr := v.Pointer()
-		if id, ok := d.referenceMap[ptr]; ok {
-			fmt.Fprintf(sb, d.ApplyFormat(ColorSlateGray, "↩︎ &%d"), id)
-			return
-		} else {
-			d.referenceMap[ptr] = d.nextRefID
-			d.nextRefID++
-		}
-	}
-	// Continue with rendering the value that the pointer points to
-	d.renderValue(sb, v.Elem(), level, visited)
-}
-
 func (d *Dumper) renderHexdump(sb *strings.Builder, v reflect.Value, level int) {
 	// using std package hex
 	// Safe fallback: Manual conversion to addressable array (cause v.Bytes() might not work)
@@ -652,6 +638,70 @@ func (d *Dumper) renderHexdump(sb *strings.Builder, v reflect.Value, level int) 
 			d.ApplyFormat(ColorSkyBlue, hexPart),
 			d.ApplyFormat(ColorLime, asciiPart),
 		)
+	}
+}
+
+// renderIndent writes indented text to the stringbuilder.
+func (d *Dumper) renderIndent(sb *strings.Builder, indentLevel int, text string) {
+	fmt.Fprint(sb, strings.Repeat(" ", indentLevel*d.config.IndentWidth)+text)
+}
+
+func (d *Dumper) renderPointer(sb *strings.Builder, v reflect.Value, level int, visited map[uintptr]bool) {
+	ptr := v.Pointer()
+	id, hasID := d.referenceMap[ptr]
+	if hasID {
+		if visited[ptr] {
+			fmt.Fprintf(sb, d.ApplyFormat(ColorSlateGray, "↩︎ &%d"), id)
+			return
+		}
+		visited[ptr] = true
+		fmt.Fprintf(sb, d.ApplyFormat(ColorGoldenrod, "&%d "), id)
+	}
+
+	// Continue with rendering the value that the pointer points to
+	d.renderValue(sb, v.Elem(), level, visited)
+}
+
+// preScan recursively scans all possible references and builds
+// the referenceMap
+func (d *Dumper) preScan(v reflect.Value, visited map[uintptr]bool) {
+	if !v.IsValid() {
+		return
+	}
+	// If it's a pointer
+	if v.Kind() == reflect.Ptr && !v.IsNil() {
+		ptr := v.Pointer()
+		if visited[ptr] {
+			return
+		}
+		visited[ptr] = true
+		// Assign a reference ID if not done yet
+		if _, ok := d.referenceMap[ptr]; !ok {
+			d.referenceMap[ptr] = d.nextRefID
+			d.nextRefID++
+		}
+		d.preScan(v.Elem(), visited)
+		return
+	}
+
+	switch v.Kind() {
+	case reflect.Struct:
+		for i := range v.NumField() {
+			d.preScan(v.Field(i), visited)
+		}
+	case reflect.Slice, reflect.Array:
+		for i := range v.Len() {
+			d.preScan(v.Index(i), visited)
+		}
+	case reflect.Map:
+		for _, key := range v.MapKeys() {
+			d.preScan(key, visited)
+			d.preScan(v.MapIndex(key), visited)
+		}
+	case reflect.Interface:
+		if !v.IsNil() {
+			d.preScan(v.Elem(), visited)
+		}
 	}
 }
 
