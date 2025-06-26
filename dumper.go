@@ -451,30 +451,13 @@ func (d *Dumper) renderArrayOrSlice(sb *strings.Builder, v reflect.Value, level 
 				listLen = fmt.Sprintf("L:%d C:%d", v.Len(), v.Cap())
 			}
 		}
-
 		fmt.Fprint(sb, d.metaHint(listLen, ""))
 	}
+
 	fmt.Fprint(sb, "[")
-	// block render
-	if !d.shouldRenderInline(v) {
-		fmt.Fprintln(sb)
-	}
 
-	if d.config.ShowHexdump && v.Type().Elem().Kind() == reflect.Uint8 {
-		d.renderHexdump(sb, v, level)
-	} else {
-
-		// First we do a pre-pass and calculate the lengthiest type
-		maxTypeLen := 0
-		for i := range v.Len() {
-			if i >= d.config.MaxItems {
-				break
-			}
-			typeName := d.formatTypeNoColors(v.Index(i), true)
-			if utf8.RuneCountInString(typeName) > maxTypeLen {
-				maxTypeLen = utf8.RuneCountInString(typeName)
-			}
-		}
+	if d.shouldRenderInline(v) {
+		// INLINE RENDER
 
 		for i := range v.Len() {
 			if i >= d.config.MaxItems {
@@ -484,7 +467,48 @@ func (d *Dumper) renderArrayOrSlice(sb *strings.Builder, v reflect.Value, level 
 			// print element type signature
 			formattedType := d.formatType(v.Index(i), true)
 			indexSymbol := d.ApplyFormat(ColorDarkTeal, fmt.Sprintf("%d", i))
-			if !d.shouldRenderInline(v) {
+
+			// inline render
+			fmt.Fprintf(sb, "%s%s => ", indexSymbol, formattedType)
+			// recursively print the array value itself, same indent level
+			d.renderValue(sb, v.Index(i), level, visited)
+
+			if i != v.Len()-1 {
+				fmt.Fprint(sb, ", ")
+			}
+		}
+
+	} else {
+		// BLOCK RENDER
+		fmt.Fprintln(sb)
+
+		// We might render a hexdump table
+		if d.config.ShowHexdump && v.Type().Elem().Kind() == reflect.Uint8 {
+			d.renderHexdump(sb, v, level)
+		} else {
+			// Not a hexdump, but a block array/slice
+
+			// First we do a pre-pass and calculate the lengthiest type
+			maxTypeLen := 0
+			for i := range v.Len() {
+				if i >= d.config.MaxItems {
+					break
+				}
+				typeName := d.formatTypeNoColors(v.Index(i), true)
+				if utf8.RuneCountInString(typeName) > maxTypeLen {
+					maxTypeLen = utf8.RuneCountInString(typeName)
+				}
+			}
+
+			for i := range v.Len() {
+				if i >= d.config.MaxItems {
+					d.renderIndent(sb, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)\n"))
+					break
+				}
+				// print element type signature
+				formattedType := d.formatType(v.Index(i), true)
+				indexSymbol := d.ApplyFormat(ColorDarkTeal, fmt.Sprintf("%d", i))
+
 				// block render
 				renderIndex := ""
 				if formattedType != "" {
@@ -497,26 +521,10 @@ func (d *Dumper) renderArrayOrSlice(sb *strings.Builder, v reflect.Value, level 
 				d.renderIndent(sb, level+1, renderIndex)
 				// recursively print the array value itself, increase indent level
 				d.renderValue(sb, v.Index(i), level+1, visited)
-			} else {
-				// inline render
-				fmt.Fprintf(sb, "%s%s => ", indexSymbol, formattedType)
-				// recursively print the array value itself, same indent level
-				d.renderValue(sb, v.Index(i), level, visited)
-			}
 
-			if !d.shouldRenderInline(v) {
-				// block render
 				fmt.Fprintln(sb)
-			} else {
-				if i != v.Len()-1 {
-					fmt.Fprint(sb, ", ")
-				}
 			}
 		}
-	}
-
-	if !d.shouldRenderInline(v) {
-		// block render
 		d.renderIndent(sb, level, "")
 	}
 
@@ -562,48 +570,81 @@ func (d *Dumper) renderHexdump(sb *strings.Builder, v reflect.Value, level int) 
 
 func (d *Dumper) renderStruct(sb *strings.Builder, v reflect.Value, level int, visited map[uintptr]bool) {
 	t := v.Type()
-
-	fmt.Fprint(sb, "{")
-	if !d.shouldRenderInline(v) {
-		fmt.Fprintln(sb)
-	}
-
 	visibleFields := reflect.VisibleFields(t)
+	fmt.Fprint(sb, "{")
 
-	// First we do a pre-pass and calculate the lengthiest field and type
-	maxKeyLen := 0
-	maxTypeLen := 0
-	for _, field := range visibleFields {
-		fieldVal := v.FieldByIndex(field.Index)
-		if field.PkgPath != "" {
-			fieldVal = forceExported(fieldVal)
-		}
-		if utf8.RuneCountInString(field.Name) > maxKeyLen {
-			maxKeyLen = utf8.RuneCountInString(field.Name)
-		}
-		typeName := d.formatTypeNoColors(fieldVal, false)
-		if utf8.RuneCountInString(typeName) > maxTypeLen {
-			maxTypeLen = utf8.RuneCountInString(typeName)
-		}
-	}
-	maxKeyLen += 2 // for visibility symbol
+	if d.shouldRenderInline(v) {
+		// INLINE RENDER
+		for i, field := range visibleFields {
+			fieldVal := v.FieldByIndex(field.Index)
+			symbol := "⯀ "
+			if field.PkgPath != "" {
+				symbol = "🞏 "
+				fieldVal = forceExported(fieldVal)
+			}
 
-	// Now can render the fields
-	for i, field := range visibleFields {
-		fieldVal := v.FieldByIndex(field.Index)
-		symbol := "⯀ "
-		if field.PkgPath != "" {
-			symbol = "🞏 "
-			fieldVal = forceExported(fieldVal)
+			symbol = d.ApplyFormat(ColorDarkGoBlue, symbol)
+			fieldName := d.ApplyFormat(ColorLightTeal, field.Name)
+			formattedType := d.formatType(fieldVal, false)
+
+			// inline render of the field
+			fieldRender := fmt.Sprintf("%s => ", symbol+fieldName)
+			if formattedType != "" {
+				fieldRender = fmt.Sprintf("%s %s => ", symbol+fieldName, formattedType)
+			}
+			fmt.Fprint(sb, fieldRender)
+			d.renderValue(sb, fieldVal, level, visited)
+
+			if i != len(visibleFields)-1 {
+				fmt.Fprint(sb, ", ")
+			}
 		}
-		unformattedFieldLen := utf8.RuneCountInString(symbol + field.Name)
-		unformattedTypeLen := utf8.RuneCountInString(d.formatTypeNoColors(fieldVal, false))
 
-		symbol = d.ApplyFormat(ColorDarkGoBlue, symbol)
-		fieldName := d.ApplyFormat(ColorLightTeal, field.Name)
-		formattedType := d.formatType(fieldVal, false)
+	} else {
+		// BLOCK RENDER
+		fmt.Fprintln(sb)
+		// First we do a pre-pass and calculate the lengthiest field and type
+		maxKeyLen := 0
+		maxTypeLen := 0
+		for _, field := range visibleFields {
+			fieldVal := v.FieldByIndex(field.Index)
+			if field.PkgPath != "" {
+				fieldVal = forceExported(fieldVal)
+			}
+			if utf8.RuneCountInString(field.Name) > maxKeyLen {
+				maxKeyLen = utf8.RuneCountInString(field.Name)
+			}
+			typeName := d.formatTypeNoColors(fieldVal, false)
+			if utf8.RuneCountInString(typeName) > maxTypeLen {
+				maxTypeLen = utf8.RuneCountInString(typeName)
+			}
+		}
+		if d.config.EmbedTypeMethods {
+			// If embedded methods are ON, do a pre-pass on them too
+			for _, m := range findTypeMethods(t) {
+				methodName := m.Name
+				if utf8.RuneCountInString(methodName) > maxKeyLen {
+					maxKeyLen = utf8.RuneCountInString(methodName)
+				}
+			}
+		}
+		maxKeyLen += 2 // for visibility symbol
 
-		if !d.shouldRenderInline(v) {
+		// Now can render the fields
+		for _, field := range visibleFields {
+			fieldVal := v.FieldByIndex(field.Index)
+			symbol := "⯀ "
+			if field.PkgPath != "" {
+				symbol = "🞏 "
+				fieldVal = forceExported(fieldVal)
+			}
+			unformattedFieldLen := utf8.RuneCountInString(symbol + field.Name)
+			unformattedTypeLen := utf8.RuneCountInString(d.formatTypeNoColors(fieldVal, false))
+
+			symbol = d.ApplyFormat(ColorDarkGoBlue, symbol)
+			fieldName := d.ApplyFormat(ColorLightTeal, field.Name)
+			formattedType := d.formatType(fieldVal, false)
+
 			// block render of the field
 			fieldRender := fmt.Sprintf("%s => ", padRight(symbol+fieldName, unformattedFieldLen, maxKeyLen))
 			if formattedType != "" {
@@ -611,40 +652,13 @@ func (d *Dumper) renderStruct(sb *strings.Builder, v reflect.Value, level int, v
 			}
 			// print visibility and symbol name, with indent
 			d.renderIndent(sb, level+1, fieldRender)
-		} else {
-			// inline render of the field
-			fieldRender := fmt.Sprintf("%s => ", symbol+fieldName)
-			if formattedType != "" {
-				fieldRender = fmt.Sprintf("%s %s => ", symbol+fieldName, formattedType)
-			}
-			fmt.Fprint(sb, fieldRender)
-		}
-
-		// recursively render the field value itself
-		if !d.shouldRenderInline(v) {
-			// block render
 			d.renderValue(sb, fieldVal, level+1, visited)
-		} else {
-			// inline render
-			d.renderValue(sb, fieldVal, level, visited)
-		}
-
-		if !d.shouldRenderInline(v) {
-			// block render
 			fmt.Fprintln(sb)
-		} else {
-			if i != len(visibleFields)-1 {
-				fmt.Fprint(sb, ", ")
-			}
 		}
-	}
-	// print all of struct's type methods (never inline)
-	if d.config.EmbedTypeMethods {
-		d.renderTypeMethods(sb, t, level+1)
-	}
-
-	if !d.shouldRenderInline(v) {
-		// block render
+		// print all of struct's type methods (never inline)
+		if d.config.EmbedTypeMethods {
+			d.renderTypeMethods(sb, t, level+1, maxKeyLen)
+		}
 		d.renderIndent(sb, level, "")
 	}
 	fmt.Fprint(sb, "}")
@@ -656,46 +670,64 @@ func (d *Dumper) renderMap(sb *strings.Builder, v reflect.Value, level int, visi
 		d.metaHint(mapLen, "")
 		fmt.Fprint(sb, d.metaHint(mapLen, ""))
 	}
-
-	fmt.Fprint(sb, "[")
-	if !d.shouldRenderInline(v) {
-		// block render
-		fmt.Fprintln(sb)
-	}
-
 	keys := v.MapKeys()
 
-	// First we do a pre-pass and calculate the lengthiest key and type
-	maxKeyLen := 0
-	maxTypeLen := 0
-	for i, key := range keys {
-		if i >= d.config.MaxItems {
-			break
-		}
-		keyStr := d.formatMapKeyAsIndex(key)
-		if utf8.RuneCountInString(keyStr) > maxKeyLen {
-			maxKeyLen = utf8.RuneCountInString(keyStr)
-		}
-		typeName := d.formatTypeNoColors(v.MapIndex(key), true)
-		if utf8.RuneCountInString(typeName) > maxTypeLen {
-			maxTypeLen = utf8.RuneCountInString(typeName)
-		}
-	}
+	fmt.Fprint(sb, "[")
 
-	for i, key := range keys {
-		if i >= d.config.MaxItems {
-			d.renderIndent(sb, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)"))
-			break
+	if d.shouldRenderInline(v) {
+		// INLINE RENDER
+		for i, key := range keys {
+			if i >= d.config.MaxItems {
+				d.renderIndent(sb, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)"))
+				break
+			}
+
+			// keyStr := fmt.Sprintf("%v", key.Interface())
+			keyStr := d.formatMapKeyAsIndex(key)
+
+			// print element type signature
+			formattedType := d.formatType(v.MapIndex(key), true)
+
+			// inline render
+			fmt.Fprintf(sb, "%s %s => ", d.ApplyFormat(ColorDarkTeal, keyStr), formattedType)
+			// recursively print the array value itself, same indent level
+			d.renderValue(sb, v.MapIndex(key), level, visited)
+
+			if i != v.Len()-1 {
+				fmt.Fprint(sb, ", ")
+			}
 		}
 
-		// keyStr := fmt.Sprintf("%v", key.Interface())
-		keyStr := d.formatMapKeyAsIndex(key)
+	} else {
+		// BLOCK RENDER
+		fmt.Fprintln(sb)
 
-		// print element type signature
-		formattedType := d.formatType(v.MapIndex(key), true)
+		// First we do a pre-pass and calculate the lengthiest key and type
+		maxKeyLen := 0
+		maxTypeLen := 0
+		for i, key := range keys {
+			if i >= d.config.MaxItems {
+				break
+			}
+			keyStr := d.formatMapKeyAsIndex(key)
+			if utf8.RuneCountInString(keyStr) > maxKeyLen {
+				maxKeyLen = utf8.RuneCountInString(keyStr)
+			}
+			typeName := d.formatTypeNoColors(v.MapIndex(key), true)
+			if utf8.RuneCountInString(typeName) > maxTypeLen {
+				maxTypeLen = utf8.RuneCountInString(typeName)
+			}
+		}
 
-		if !d.shouldRenderInline(v) {
-			// block render
+		for i, key := range keys {
+			if i >= d.config.MaxItems {
+				d.renderIndent(sb, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)"))
+				break
+			}
+
+			keyStr := d.formatMapKeyAsIndex(key)
+			// print element type signature
+			formattedType := d.formatType(v.MapIndex(key), true)
 
 			keyRender := fmt.Sprintf("%s => ", padRight(keyStr, utf8.RuneCountInString(keyStr), maxKeyLen))
 
@@ -709,26 +741,13 @@ func (d *Dumper) renderMap(sb *strings.Builder, v reflect.Value, level int, visi
 			d.renderIndent(sb, level+1, keyRender)
 			// recursively print the array value itself, increase indent level
 			d.renderValue(sb, v.MapIndex(key), level+1, visited)
-		} else {
-			// inline render
-			fmt.Fprintf(sb, "%s %s => ", d.ApplyFormat(ColorDarkTeal, keyStr), formattedType)
-			// recursively print the array value itself, same indent level
-			d.renderValue(sb, v.MapIndex(key), level, visited)
+
+			fmt.Fprintln(sb)
 		}
 
-		if !d.shouldRenderInline(v) {
-			// block render
-			fmt.Fprintln(sb)
-		} else {
-			if i != v.Len()-1 {
-				fmt.Fprint(sb, ", ")
-			}
-		}
-	}
-	if !d.shouldRenderInline(v) {
-		// block render
 		d.renderIndent(sb, level, "")
 	}
+
 	fmt.Fprint(sb, "]")
 }
 
@@ -755,17 +774,7 @@ func (d *Dumper) renderIndent(sb *strings.Builder, indentLevel int, text string)
 	fmt.Fprint(sb, strings.Repeat(" ", indentLevel*d.config.IndentWidth)+text)
 }
 
-func (d *Dumper) renderTypeMethods(sb *strings.Builder, t reflect.Type, level int) {
-	// First we do a pre-pass and calculate the lengthiest method name
-	maxNameLen := 0
-	for _, m := range findTypeMethods(t) {
-		keyStr := m.Name
-		if utf8.RuneCountInString(keyStr) > maxNameLen {
-			maxNameLen = utf8.RuneCountInString(keyStr)
-		}
-	}
-	maxNameLen += 2 // for visibility symbol
-
+func (d *Dumper) renderTypeMethods(sb *strings.Builder, t reflect.Type, level int, maxNameLen int) {
 	for _, m := range findTypeMethods(t) {
 		// print visibility and symbol name
 		unformattedNameLen := utf8.RuneCountInString(m.Name) + 2
@@ -828,6 +837,11 @@ func (d *Dumper) shouldRenderInline(v reflect.Value) bool {
 	// Handle zero or invalid
 	if !v.IsValid() {
 		return true
+	}
+
+	// If type method embedding is ON and type has methods, cannot be inline
+	if d.config.EmbedTypeMethods && len(findTypeMethods(v.Type())) > 0 {
+		return false
 	}
 
 	switch v.Kind() {

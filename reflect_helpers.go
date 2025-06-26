@@ -78,6 +78,11 @@ func findTypeMethods(typ reflect.Type) []reflect.Method {
 	seen := make(map[string]bool)
 	methods := []reflect.Method{}
 
+	if typ.Name() == "" || typ.PkgPath() == "" {
+		// ignore if it's NOT a named type
+		return methods
+	}
+
 	// Check value receiver methods
 	for i := range typ.NumMethod() {
 		m := typ.Method(i)
