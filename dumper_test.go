@@ -73,50 +73,91 @@ func TestDumpPointersAndNil(t *testing.T) {
 	}
 }
 
-// func TestDumpStruct(t *testing.T) {
-// 	type person struct {
-// 		Name string
-// 		Age  int
-// 	}
+func TestDumpArraysAndSlices(t *testing.T) {
+	tests := []struct {
+		name         string
+		input        any
+		wantContains string
+	}{
+		{"empty array", [0]int{}, "[0]int => |0| []"},
+		{"array of ints", [3]int{1, 2, 3}, "[3]int => |3| [0 => 1, 1 => 2, 2 => 3]"},
+		{"empty slice", []string{}, "[]string => |0| []"},
+		{"slice of strings", []string{"a", "b"}, `|2| [0 => |R:1| "a", 1 => |R:1| "b"]`},
+		{"nil slice", []int(nil), "<nil>"},
+		{"slice of structs", []struct{ A int }{{1}, {2}},
+			`[]struct { A int } => |2| [
+   0 struct { A int } => {⯀ A int => 1}
+   1 struct { A int } => {⯀ A int => 2}
+]`},
+	}
 
-// 	p := person{Name: "Alice", Age: 30}
-// 	var buf bytes.Buffer
-// 	Dump(&buf, p)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := SdumpNoColors(tt.input)
+			if !strings.Contains(out, tt.wantContains) {
+				t.Errorf("Dump %s: got:\n%s\nwant contains:\n%s", tt.name, out, tt.wantContains)
+			}
+		})
+	}
+}
 
-// 	out := buf.String()
-// 	if !strings.Contains(out, "Name") || !strings.Contains(out, "\"Alice\"") || !strings.Contains(out, "30") {
-// 		t.Errorf("Dump(struct) output = %q; want output containing struct fields", out)
-// 	}
-// }
+func TestDumpStructs(t *testing.T) {
+	type Basic struct {
+		Name string
+		Age  int
+	}
 
-// func TestDumpPointer(t *testing.T) {
-// 	x := 123
-// 	var buf bytes.Buffer
-// 	Dump(&buf, &x)
+	type Nested struct {
+		ID    int
+		Inner Basic
+	}
 
-// 	out := buf.String()
-// 	if !strings.Contains(out, "int") || !strings.Contains(out, "123") {
-// 		t.Errorf("Dump(*int) output = %q; want output containing 'int' and '123'", out)
-// 	}
-// }
+	type Anonymous struct {
+		string
+		int
+	}
 
-// func TestDumpNil(t *testing.T) {
-// 	var buf bytes.Buffer
-// 	var ptr *int
-// 	Dump(&buf, ptr)
+	b := Basic{"Alice", 30}
+	n := Nested{1, b}
+	a := Anonymous{"hidden", 42}
+	ptr := &Basic{"Bob", 40}
 
-// 	if !strings.Contains(buf.String(), "nil") {
-// 		t.Errorf("Dump(nil pointer) output = %q; want output containing 'nil'", buf.String())
-// 	}
-// }
+	tests := []struct {
+		name         string
+		input        any
+		wantContains string
+	}{
+		{
+			name:         "basic struct",
+			input:        b,
+			wantContains: `govar.Basic => {⯀ Name string => |R:5| "Alice", ⯀ Age int => 30}`,
+		},
+		{
+			name:         "pointer to struct",
+			input:        ptr,
+			wantContains: `*govar.Basic => {⯀ Name string => |R:3| "Bob", ⯀ Age int => 40}`,
+		},
+		{
+			name:  "nested struct",
+			input: n,
+			wantContains: `govar.Nested => {
+   ⯀ ID     int         => 1
+   ⯀ Inner  govar.Basic => {⯀ Name string => |R:5| "Alice", ⯀ Age int => 30}
+}`,
+		},
+		{
+			name:         "anonymous fields struct",
+			input:        a,
+			wantContains: `govar.Anonymous => {🞏 string string => |R:6| "hidden", 🞏 int int => 42}`,
+		},
+	}
 
-// func TestDumpSlice(t *testing.T) {
-// 	s := []string{"foo", "bar"}
-// 	var buf bytes.Buffer
-// 	Dump(&buf, s)
-
-// 	out := buf.String()
-// 	if !strings.Contains(out, "foo") || !strings.Contains(out, "bar") {
-// 		t.Errorf("Dump(slice) output = %q; want output containing slice elements", out)
-// 	}
-// }
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := SdumpNoColors(tt.input)
+			if !strings.Contains(out, tt.wantContains) {
+				t.Errorf("Dump %s: got:\n%s\nwant contains:\n%s", tt.name, out, tt.wantContains)
+			}
+		})
+	}
+}
