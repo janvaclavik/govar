@@ -613,26 +613,28 @@ func (d *Dumper) preScan(v reflect.Value, visited map[uintptr]bool) {
 
 // renderAllValues writes all the values to the stringbuilder, handling references and indentation.
 func (d *Dumper) renderAllValues(sb *strings.Builder, vs ...any) {
-	d.referenceMap = map[uintptr]int{}    // reset each time
-	d.referenceCounts = map[uintptr]int{} // reset each time
-	d.nextRefID = 1
 
-	// First pass with preScan(): assign reference IDs
-	for _, v := range vs {
-		rv := reflect.ValueOf(v)
-		rv = makeAddressable(rv)
-		d.preScan(rv, map[uintptr]bool{}) // fresh map for each top-level value
-	}
+	if d.config.TrackReferences {
+		d.referenceMap = map[uintptr]int{}    // reset each time
+		d.referenceCounts = map[uintptr]int{} // reset each time
+		d.nextRefID = 1
 
-	// After preScan, loop through referenceCounts and assign refIDs only to those that are shared
-	// (more references than 1)
-	for ptr, count := range d.referenceCounts {
-		if count > 1 {
-			d.referenceMap[ptr] = d.nextRefID
-			d.nextRefID++
+		// First pass with preScan(): assign reference IDs
+		for _, v := range vs {
+			rv := reflect.ValueOf(v)
+			rv = makeAddressable(rv)
+			d.preScan(rv, map[uintptr]bool{}) // fresh map for each top-level value
+		}
+
+		// After preScan, loop through referenceCounts and assign refIDs only to those that are shared
+		// (more references than 1)
+		for ptr, count := range d.referenceCounts {
+			if count > 1 {
+				d.referenceMap[ptr] = d.nextRefID
+				d.nextRefID++
+			}
 		}
 	}
-
 	// Second pass: render the values
 	visited := map[uintptr]bool{}
 	for _, v := range vs {
@@ -717,19 +719,20 @@ func (d *Dumper) renderIndent(sb *strings.Builder, indentLevel int, text string)
 func (d *Dumper) renderPointer(sb *strings.Builder, v reflect.Value, level int, visited map[uintptr]bool) {
 	ptr := v.Pointer()
 
-	// If this pointer is known (shared), use ↩︎ or anchor
-	if id, ok := d.referenceMap[ptr]; ok {
-		if visited[ptr] {
-			// Seen already, render as ↩︎
-			fmt.Fprintf(sb, d.ApplyFormat(ColorSlateGray, "↩︎ &%d"), id)
-			return
-		} else {
-			// First time seeing it, mark visited and render anchor
-			visited[ptr] = true
-			fmt.Fprintf(sb, d.ApplyFormat(ColorGoldenrod, "&%d "), id)
+	if d.config.TrackReferences {
+		// If this pointer is known (shared), use ↩︎ or anchor
+		if id, ok := d.referenceMap[ptr]; ok {
+			if visited[ptr] {
+				// Seen already, render as ↩︎
+				fmt.Fprintf(sb, d.ApplyFormat(ColorSlateGray, "↩︎ &%d"), id)
+				return
+			} else {
+				// First time seeing it, mark visited and render anchor
+				visited[ptr] = true
+				fmt.Fprintf(sb, d.ApplyFormat(ColorGoldenrod, "&%d "), id)
+			}
 		}
 	}
-
 	// Continue with rendering the value that the pointer points to
 	d.renderValue(sb, v.Elem(), level, visited)
 }
@@ -741,8 +744,11 @@ func (d *Dumper) renderStruct(sb *strings.Builder, v reflect.Value, level int, v
 
 	if d.shouldRenderInline(v) {
 		// INLINE RENDER
-		for i, field := range visibleFields {
-			fieldVal := v.FieldByIndex(field.Index)
+		for i := range t.NumField() {
+			// fieldVal := v.FieldByIndex(field.Index)
+			field := t.Field(i)
+			fieldVal := v.Field(i)
+
 			symbol := "⯀ "
 			if field.PkgPath != "" {
 				symbol = "🞏 "
@@ -772,8 +778,11 @@ func (d *Dumper) renderStruct(sb *strings.Builder, v reflect.Value, level int, v
 		// First we do a pre-pass and calculate the lengthiest field and type
 		maxKeyLen := 0
 		maxTypeLen := 0
-		for _, field := range visibleFields {
-			fieldVal := v.FieldByIndex(field.Index)
+		for i := range t.NumField() {
+			// fieldVal := v.FieldByIndex(field.Index)
+			field := t.Field(i)
+			fieldVal := v.Field(i)
+
 			if field.PkgPath != "" {
 				fieldVal = forceExported(fieldVal)
 			}
@@ -797,8 +806,11 @@ func (d *Dumper) renderStruct(sb *strings.Builder, v reflect.Value, level int, v
 		maxKeyLen += 2 // for visibility symbol
 
 		// Now can render the fields
-		for _, field := range visibleFields {
-			fieldVal := v.FieldByIndex(field.Index)
+		for i := range t.NumField() {
+			// fieldVal := v.FieldByIndex(field.Index)
+			field := t.Field(i)
+			fieldVal := v.Field(i)
+
 			symbol := "⯀ "
 			if field.PkgPath != "" {
 				symbol = "🞏 "
