@@ -2,9 +2,9 @@
 
 `govar` is a handy Go object inspector and variable dumper. It gives you **styled, readable, and insightful peeks** into Go variables, structs, functions, slices, maps — you name it. Perfect for debugging, learning, or writing better tools.
 
-- 🎯 **No dependencies**
+- 🎯 **No extra dependencies**
 - 🧵 **Goroutine safe**
-- 🎨 **Colorful ANSI or HTML output**
+- 🎨 **Colorful ANSI, HTML output, or just plain text**
 - 🛠️ **Customizable formatting**
 - 🔍 **Type & interface introspection tools**
 
@@ -28,9 +28,8 @@ And unlike some packages, `govar` lets you **poke around in your own project** �
 | Feature | Description |
 |--------|-------------|
 | 📦 Pretty‑prints any Go value | Supports nested structs, pointers, maps, funcs, channels, etc. |
-| 🔎 Type + kind info | Includes `reflect.Type`, method sets, type visibility |
 | 🎨 Colorful output | ANSI terminal colors or styled HTML |
-| 🧠 Smart struct field markers | `⯀` for exported, `🞏` for unexported |
+| 🧠 Smart struct field markers | `⯀` for exported, `🞏` for unexported | `⦿` for type methods |
 | 🕳️ Cycle detection | Handles circular refs & shared pointers |
 | 🧾 Hex dump | Nicely formatted hexdump for `[]byte` |
 | 📐 Size & cap info | Shows lengths and capacities |
@@ -145,12 +144,6 @@ func main() {
 | `who.Interfaces()`    | Lists interfaces in your codebase that a given type implements            |
 | `who.InterfacesExt()` | Lists interfaces from stdlib and imported packages a given type satisfies |
 
-
-## ⚖️ Comparison with other tools
-
-- "No tabwriter hacks — govar produces true structured output, not hacked-together tables."
-
-TODO
 
 ## 🧩 License
 

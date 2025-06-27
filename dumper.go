@@ -12,22 +12,25 @@ import (
 	"unicode/utf8"
 )
 
+// DumperConfig holds configuration parameters for the Dumper.
+// These control output formatting, depth, type information, etc.
 type DumperConfig struct {
-	IndentWidth         int
-	MaxDepth            int
-	MaxItems            int
-	MaxStringLen        int
-	MaxInlineLength     int
-	ShowTypes           bool
-	UseColors           bool
-	TrackReferences     bool
-	HTMLtagToken        string
-	HTMLtagSection      string
-	EmbedTypeMethods    bool
-	ShowMetaInformation bool
-	ShowHexdump         bool
+	IndentWidth         int    // Number of spaces to use per indentation level.
+	MaxDepth            int    // Maximum levels of nested structures to print.
+	MaxItems            int    // Maximum number of items to print per slice/map.
+	MaxStringLen        int    // Maximum string length before truncation.
+	MaxInlineLength     int    // Maximum inline width before switching to block format.
+	ShowTypes           bool   // Whether to show type names.
+	UseColors           bool   // Whether to apply ANSI colors to output.
+	TrackReferences     bool   // Track shared references to detect cycles.
+	HTMLtagToken        string // HTML span tag class used for syntax tokens.
+	HTMLtagSection      string // HTML span tag class used for value sections.
+	EmbedTypeMethods    bool   // Include exported methods from embedded types.
+	ShowMetaInformation bool   // Show metadata such as string lengths or slice capacities.
+	ShowHexdump         bool   // Show byte slices as hexdump when applicable.
 }
 
+// Dumper formats Go values according to DumperConfig for debugging or introspection.
 type Dumper struct {
 	nextRefID       int
 	referenceCounts map[uintptr]int
@@ -36,17 +39,18 @@ type Dumper struct {
 	Formatter
 }
 
+// NewDumper creates a new Dumper with the provided configuration.
 func NewDumper(cfg DumperConfig) *Dumper {
 	return &Dumper{nextRefID: 1, referenceMap: map[uintptr]int{}, config: cfg, Formatter: PlainFormatter{}}
 }
 
-// Die is a debug function that prints the values and exits the program.
+// Die dumps the given values and immediately terminates the program.
 func (d *Dumper) Die(vs ...any) {
 	Dump(vs...)
 	os.Exit(1)
 }
 
-// Dump prints the values to stdout with colorized output.
+// Dump prints values to stdout using the configured formatting.
 func (d *Dumper) Dump(vs ...any) {
 	// Enable coloring
 	if d.config.UseColors {
@@ -60,7 +64,7 @@ func (d *Dumper) Dump(vs ...any) {
 	fmt.Fprintln(os.Stdout, sb.String())
 }
 
-// Fdump writes the formatted dump of values to the given io.Writer.
+// Fdump writes values to the given io.Writer using the configured formatting.
 func (d *Dumper) Fdump(w io.Writer, vs ...any) {
 	// Enable coloring
 	if d.config.UseColors {
@@ -74,7 +78,7 @@ func (d *Dumper) Fdump(w io.Writer, vs ...any) {
 	fmt.Fprintln(w, sb.String())
 }
 
-// Sdump dumps the values as a string with colorized output.
+// Sdump returns a string containing the formatted values.
 func (d *Dumper) Sdump(vs ...any) string {
 	// Enable coloring
 	if d.config.UseColors {
@@ -88,7 +92,7 @@ func (d *Dumper) Sdump(vs ...any) string {
 	return sb.String()
 }
 
-// HTMLdump dumps the values as HTML inside a <pre> tag with colorized output.
+// SdumpHTML returns an HTML-formatted dump wrapped in a <pre> block.
 func (d *Dumper) SdumpHTML(vs ...any) string {
 	// Enable HTML coloring
 	d.Formatter = HTMLformatter{HTMLtagToken: d.config.HTMLtagToken, UseColors: d.config.UseColors}
@@ -101,8 +105,7 @@ func (d *Dumper) SdumpHTML(vs ...any) string {
 	return sb.String()
 }
 
-// asStringer checks if the value implements the fmt.Stringer and returns its
-// string representation.
+// asStringerInterface tries to format a value implementing fmt.Stringer.
 func (d *Dumper) asStringerInterface(v reflect.Value) string {
 	val := v
 	if !val.CanInterface() {
@@ -122,8 +125,7 @@ func (d *Dumper) asStringerInterface(v reflect.Value) string {
 	return ""
 }
 
-// asErrorInterface checks if the value implements the std error and returns
-// its string representation.
+// asErrorInterface tries to format a value implementing the error interface.
 func (d *Dumper) asErrorInterface(v reflect.Value) string {
 	val := v
 	if !val.CanInterface() {
@@ -237,7 +239,7 @@ func (d *Dumper) isSimpleStruct(v reflect.Value) bool {
 		return false
 	}
 
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		if !isSimpleValue(v.Field(i)) {
 			return false
 		}
