@@ -43,6 +43,36 @@ func TestDumpBasicTypes(t *testing.T) {
 	}
 }
 
+func TestDumpPointersAndNil(t *testing.T) {
+	val := 100
+	str := "hello"
+
+	tests := []struct {
+		name         string
+		input        any
+		wantContains string
+	}{
+		{"nil", nil, "invalid => <invalid>"},
+		{"nil interface", any(nil), "invalid => <invalid>"},
+		{"nil pointer", (*int)(nil), "*int => <nil>"},
+		{"pointer to int", &val, "*int => 100"},
+		{"pointer to string", &str, `*string => |R:5| "hello"`},
+		{"pointer to pointer", func() any {
+			p := &val
+			return &p
+		}(), "**int => 100"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := SdumpNoColors(tt.input)
+			if !strings.Contains(out, tt.wantContains) {
+				t.Errorf("Dump %s: got:\n%s\nwant contains:\n%s", tt.name, out, tt.wantContains)
+			}
+		})
+	}
+}
+
 // func TestDumpStruct(t *testing.T) {
 // 	type person struct {
 // 		Name string
