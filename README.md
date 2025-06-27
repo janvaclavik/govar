@@ -24,7 +24,7 @@ And unlike some packages, `govar` lets you **poke around in your own project** â
 
 <p align="center">
 <strong>Example output</strong><br>
-  <img src="./assets/demo-struct.png">
+  <img src="./assets/demo_struct.png">
 </p>
 
 ## âœ¨ Features at a Glance
