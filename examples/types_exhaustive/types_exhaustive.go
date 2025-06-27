@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"math/rand/v2"
+	"net"
+	"strings"
 	"time"
 	"unsafe"
 
@@ -262,6 +266,160 @@ func (*WithMethods) Complex(x string) func(int) string {
 	}
 }
 
+const ConstInt = 20
+
+type Footester interface {
+	Footest(int)
+}
+
+var MyNilFunction func(int) = nil
+
+func MyHandler(name string, ctx context.Context) int {
+	return 0
+}
+
+func MyFuncWithInterface(parameter Footester) error {
+	return nil
+}
+
+func MyVariadic(myBoy any, values ...int) error {
+	for _, val := range values {
+		fmt.Printf("value: %d", val)
+	}
+	return nil
+}
+
+type NotSimpleType int
+
+func (m *NotSimpleType) SimpleMethod(sayThis string) string {
+	return fmt.Sprintf("Hi there, I am %d and you want me to say: %s", m, sayThis)
+}
+
+type InnerStruct struct {
+	ID           int
+	Notes        []string
+	Whatever     interface{}
+	WhateverElse any
+}
+
+type Methodist struct {
+	Height               float32
+	PrimitiveWithMethods NotSimpleType
+}
+
+func (m *Methodist) SomeMethod() {
+	m.Height = 399
+}
+
+func (m *Methodist) String() string {
+	return "I am a Methodist type struct and this is my fmt.Stringer representation!"
+}
+
+func (m Methodist) OtherMethod() error {
+	fmt.Print(m.Height)
+	return nil
+}
+
+func (m Methodist) MethodAny(x int, anything interface{}) error {
+	fmt.Print(m.Height)
+	return nil
+}
+
+type Ref struct {
+	Self *Ref
+}
+
+type SmallStruct struct {
+	ID           int
+	privateName  string
+	privateSlice []float32
+	InterfaceSub Footester
+	InterfaceAny any
+}
+
+type Everything struct {
+	String            string
+	Bool              bool
+	Bool2             bool
+	Int               int
+	Float             float64
+	Complex           complex128
+	Time              time.Time
+	Duration          time.Duration
+	PtrString         *string
+	PtrDuration       *time.Duration
+	SliceInts         []int
+	ArrayStrings      [2]string
+	MapValues         map[string]int
+	Nested            InnerStruct
+	NestedPtr         *InnerStruct
+	InterfaceAny      any
+	InterfaceSpecific Footester
+	Recursive         *Ref
+	privateField      string
+	privateStruct     InnerStruct
+}
+
+func (i InnerStruct) Footest(value int) {
+	fmt.Println("heh")
+}
+
+type EmbeddedStruct struct {
+	Height float32
+	Weight float32
+}
+
+type SomeTypeWithInterfaces struct {
+	VisibleField    int
+	invisibleField  int
+	FirstInterface  fmt.Stringer
+	secondInterface Footester
+	EmbeddedStruct
+}
+
+type CustomError struct {
+	internal float64
+}
+
+func (e CustomError) Error() string {
+	return "something strange happened in my custom setup"
+}
+
+type NotSimpleSlice []string
+
+func (s NotSimpleSlice) CoolMethod() string {
+	return "something"
+}
+
+type NotSimpleBool bool
+
+func (b NotSimpleBool) CoolMethod() bool {
+	return false
+}
+
+type NotSimpleChan chan<- int
+
+func (ch NotSimpleChan) ChanMethod() int {
+	return 1
+}
+
+type NotSimpleFunc func() string
+
+func (f NotSimpleFunc) FuncMethod() int {
+	return 22
+}
+
+type NotSimpleMap map[string]string
+
+func (m NotSimpleMap) MapMethod() int {
+	return 5
+}
+
+type ListNode struct {
+	Value int
+	Next  *ListNode
+}
+
 var (
 	// Primitive
 	booleanTrue         = true
@@ -490,10 +648,10 @@ func main() {
 
 	node.UnsafePointer2 = (*unsafe.Pointer)(unsafe.Pointer(&node))
 
-	// All primitive types
+	// Print all the primitive types
+	fmt.Println("Primitive type list:")
 	govar.Dump(node)
 
-	// Other
 	for i := range 15 {
 		longArray[i] = 9
 		longArrayPointers[i] = &longArray[i]
@@ -503,6 +661,8 @@ func main() {
 	chanBidirect <- 2
 	close(chanClosed)
 
+	// Other - types, collections and constructions
+	fmt.Println("Now lets print out all kinds of possible Go types, collections and constructions:")
 	govar.Dump(booleanTrue, booleanFalse, intVal, intZero, uintVal, floatVal, complexVal,
 		byteVal, runeVal, stringVal, utf8String, emptyStr,
 		arrayVal, emptyArray, sliceVal, sliceExoticStrings, nilSlice, emptySlice, multiDimArray, matrix, longArray, longArrayPointers,
@@ -513,5 +673,189 @@ func main() {
 		funcVal, nilFunc, methodHolder,
 		chanSendOnly, chanRecvOnly, chanBidirect, chanClosed,
 	)
+
+	// And more stuff....
+	fmt.Println("Now lets print some other stuff, maybe less common:")
+
+	simpleMethodist := Methodist{Height: 111, PrimitiveWithMethods: 11}
+	simpleString := "Sample text"
+	simpleStringWithNewline := "Sometext before newline\nsome text after newline"
+	hundredLetterString := "Code flows like water-clean, sharp, alive. Debug dreams, peek deep & craft truth from logic’s light."
+	notSimpleType := NotSimpleType(10)
+	notSimpleSlice := NotSimpleSlice{}
+	notSimpleBool := NotSimpleBool(true)
+	notSimpleChan := make(NotSimpleChan)
+	notSimpleFunc := NotSimpleFunc(func() string { return "Hi! I am a func with a method on myself!" })
+	notSimpleMap := NotSimpleMap(map[string]string{"hi": "there"})
+
+	anonFunc := func(foo string) string {
+		return strings.Join([]string{"prefix", foo, "postfix"}, "-")
+	}
+
+	emptySlice := []string{}
+
+	now := time.Now()
+	ptrStr := "Hello"
+	dur := time.Minute * 20
+
+	bigStruct := Everything{
+		String:            "test",
+		Bool:              true,
+		Bool2:             false,
+		Int:               11,
+		Float:             1.1111,
+		Complex:           2.17 + 5.3i,
+		Time:              now,
+		Duration:          dur,
+		PtrString:         &ptrStr,
+		PtrDuration:       &dur,
+		SliceInts:         []int{1, 2, 3},
+		ArrayStrings:      [2]string{"foo", "bar"},
+		MapValues:         map[string]int{"a": 1, "b": 2},
+		Nested:            InnerStruct{ID: 10, Notes: []string{"alpha", "beta"}, Whatever: "Something"},
+		NestedPtr:         &InnerStruct{ID: 99, Notes: []string{"x", "y"}},
+		InterfaceAny:      map[string]bool{"ok": true},
+		InterfaceSpecific: InnerStruct{ID: 5, Notes: []string{"private"}, Whatever: 1, WhateverElse: 2},
+		Recursive:         &Ref{},
+		privateField:      "private value",
+		privateStruct:     InnerStruct{ID: 5, Notes: []string{"private"}},
+	}
+	bigStruct.Recursive.Self = bigStruct.Recursive // cycle
+
+	smallStruct := SmallStruct{
+		ID:           77,
+		privateName:  "Adi\nYogi",
+		privateSlice: []float32{2.5, 3, 4.777},
+		InterfaceSub: nil,
+		InterfaceAny: nil,
+	}
+
+	matrix := [4][4]int{
+		{1, 2, 3, 4},
+		{0, 1, 2, 3},
+		{0, 0, 1, 2},
+		{0, 0, 0, 1},
+	}
+
+	var longArray [9]int
+	var longArrayPointers [9]*int
+	for i := range 9 {
+		longArray[i] = 9
+		longArrayPointers[i] = &longArray[i]
+	}
+	var anyArray [3]any = [3]any{"first", nil, [3]any{1, 5, 10}}
+	var anySlice []any = []any{1, "neco", 5.16, nil, smallStruct}
+
+	var stringAnyMap map[string]any = make(map[string]any)
+	stringAnyMap["nothing"] = nil
+	stringAnyMap["one"] = 1
+	stringAnyMap["two"] = 2.0
+	stringAnyMap["three"] = "three"
+	stringAnyMap["four"] = [4]int{0, 2, 4, 6}
+	stringAnyMap["five"] = 5 + 0i
+	stringAnyMap["six"] = SmallStruct{ID: 10, InterfaceAny: 4.44}
+	stringAnyMap["prevline\nnextline"] = nil
+
+	var anyAnyMap map[any]any = make(map[any]any, 100)
+	anyAnyMap["hello"] = 34
+	anyAnyMap[3] = "some stringy thingy"
+	anyAnyMap[3.14] = true
+	anyAnyMap[false] = []int{4, 3, 2}
+	anyAnyMap[0.867+0.5i] = "index by a complex number"
+
+	TestError := errors.New("something wrong")
+	NextError := fmt.Errorf("something went wrong with this random number: %d", rand.IntN(1000))
+	testSndChan := make(chan<- int)
+	testRcvChan := make(<-chan int)
+	testBidirectionalChan := make(chan int)
+	testSndBufferedChan := make(chan<- int, 5)
+
+	sliceOfSmallStruct := []SmallStruct{{ID: 44}, {ID: 45}, {ID: 46}}
+	fewRunes := "ŠROTÍŘ 🔨🔥"
+	interestingRunes := "Ahoj, tohle je čeština a ta má zvláštní písmena, jako třeba: č, š, ž nebo dokonce ř! 🇨🇿🌍"
+
+	type tinyStruct struct {
+		x    int
+		y    int
+		name string
+	}
+	smallishStruct := tinyStruct{x: 5, y: 0, name: "Gřandalf"}
+
+	sliceWithCap := make([]float32, 2, 10)
+	sliceWithCap[0] = 2.5
+	sliceWithCap[1] = 0.8
+
+	strangeMap := map[[10]int]string{{1, 2, 3, 4, 5, 7}: "ahoj", {2, 1, 0, 1, 2, 100}: "hello"}
+	strangeMap2 := map[tinyStruct]string{{x: 1}: "wow", {x: 2, y: 3}: "OMG"}
+
+	randomByteArray := [6]byte{123, 34, 101, 114, 114, 111}
+
+	coolByteArray := []byte("Hex dumping is a method of displaying binary data in a human-readable hexadecimal format.\n" +
+		"\t It helps developers inspect memory, debug data structures, or analyze file contents.\n" +
+		"\t Each byte is shown as a two-digit hex value, often alongside ASCII for clarity during low-level debugging.\n")
+
+	type CustomMap[T int | float64, V string] map[T]V
+
+	mapGenerics := make(CustomMap[int, string])
+	mapGenerics[3] = "three"
+
+	littleMap := map[int]int{1: 2, 2: 4, 4: 6}
+
+	newObjectWithInterfaces := SomeTypeWithInterfaces{VisibleField: 1, invisibleField: 2, FirstInterface: &Methodist{}, secondInterface: InnerStruct{}}
+	newObjectWithInterfaces.Height = 186
+	newMapWithInterfaces := map[string]fmt.Stringer{"something": &Methodist{Height: 100}, "smthElse": &Methodist{Height: 10}}
+
+	n1 := &ListNode{Value: 1}
+	n2 := &ListNode{Value: 2, Next: n1}
+	n1.Next = n2
+
+	govar.Dump(net.Dialer{})
+	govar.Dump(simpleString)
+	govar.Dump(simpleStringWithNewline)
+	govar.Dump(hundredLetterString)
+	govar.Dump(notSimpleType)
+	govar.Dump(notSimpleSlice)
+	govar.Dump(notSimpleBool)
+	govar.Dump(notSimpleChan)
+	govar.Dump(notSimpleFunc)
+	govar.Dump(notSimpleMap)
+	govar.Dump(emptySlice)
+	govar.Dump(simpleMethodist)
+	govar.Dump(TestError)
+	govar.Dump(NextError)
+	govar.Dump(CustomError{internal: 55.4})
+	govar.Dump(MyNilFunction)
+	govar.Dump(anonFunc)
+	govar.Dump(MyHandler)
+	govar.Dump(MyFuncWithInterface)
+	govar.Dump(MyVariadic)
+	govar.Dump(littleMap)
+	govar.Dump(smallStruct)
+	govar.Dump(bigStruct)
+	govar.Dump(matrix)
+	govar.Dump(longArray)
+	govar.Dump(longArrayPointers)
+	govar.Dump(anyArray)
+	govar.Dump(anySlice)
+	govar.Dump(stringAnyMap)
+	govar.Dump(anyAnyMap)
+	govar.Dump(testSndChan)
+	govar.Dump(testRcvChan)
+	govar.Dump(testBidirectionalChan)
+	govar.Dump(testSndBufferedChan)
+	govar.Dump(sliceOfSmallStruct)
+	govar.Dump(fewRunes)
+	govar.Dump(interestingRunes)
+	govar.Dump(smallishStruct)
+	govar.Dump(sliceWithCap)
+	govar.Dump(strangeMap)
+	govar.Dump(strangeMap2)
+	govar.Dump(randomByteArray)
+	govar.Dump(coolByteArray)
+	govar.Dump(mapGenerics)
+	govar.Dump(newObjectWithInterfaces)
+	govar.Dump(newMapWithInterfaces)
+	govar.Dump(n1)
+	govar.Dump(n2)
 
 }
