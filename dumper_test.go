@@ -350,3 +350,46 @@ func TestDumpChannels(t *testing.T) {
 		})
 	}
 }
+
+func TestDumpFunctions(t *testing.T) {
+	fnSimple := func() {}
+	fnWithArgs := func(a int, b string) error { return nil }
+	var nilFunc func()
+	fnTyped := func(a float64) bool { return a > 0 }
+
+	tests := []struct {
+		name         string
+		input        any
+		wantContains string
+	}{
+		{
+			name:         "nil function",
+			input:        nilFunc,
+			wantContains: `func() => <nil>`,
+		},
+		{
+			name:         "anonymous simple func",
+			input:        fnSimple,
+			wantContains: `func() =>`,
+		},
+		{
+			name:         "func with args and return",
+			input:        fnWithArgs,
+			wantContains: `func(int, string) error =>`,
+		},
+		{
+			name:         "typed func(float64) bool",
+			input:        fnTyped,
+			wantContains: `func(float64) bool =>`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := SdumpNoColors(tt.input)
+			if !strings.Contains(out, tt.wantContains) {
+				t.Errorf("Dump %s: got:\n%s\nwant contains:\n%s", tt.name, out, tt.wantContains)
+			}
+		})
+	}
+}
