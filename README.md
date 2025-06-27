@@ -33,7 +33,7 @@ And unlike some packages, `govar` lets you **poke around in your own project** �
 |--------|-------------|
 | 📦 Pretty‑prints any Go value | Supports nested structs, pointers, maps, funcs, channels, etc. |
 | 🎨 Colorful output | ANSI terminal colors or styled HTML |
-| 🧠 Smart struct field markers | `⯀` for exported, `🞏` for unexported | `⦿` for type methods |
+| 🧠 Smart struct field markers | `⯀` for exported, `🞏` for unexported, `⦿` for type methods |
 | 🕳️ Cycle detection | Handles circular refs & shared pointers |
 | 🧾 Hex dump | Nicely formatted hexdump for `[]byte` |
 | 📐 Size & cap info | Shows lengths and capacities |
