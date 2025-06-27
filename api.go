@@ -43,7 +43,27 @@ func Dump(values ...any) {
 }
 
 // Drop-in API for dumping colorized variables to stdout
-// With everything ON (types OFF, meta-hints OFF, embedded type methods OFF)
+// With everything ON (but colors OFF)
+func DumpNoColors(values ...any) {
+	defaultConfig := DumperConfig{
+		IndentWidth:         3,
+		MaxDepth:            15,
+		MaxItems:            150,
+		MaxStringLen:        10000,
+		MaxInlineLength:     80,
+		ShowTypes:           true,
+		UseColors:           true,
+		TrackReferences:     true,
+		EmbedTypeMethods:    true,
+		ShowMetaInformation: true,
+		ShowHexdump:         true,
+	}
+	d := NewDumper(defaultConfig)
+	d.Dump(values...)
+}
+
+// Drop-in API for dumping colorized variables to stdout
+// (types OFF, meta-hints OFF, embedded type methods OFF)
 func DumpValues(values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
@@ -83,7 +103,27 @@ func Fdump(w io.Writer, values ...any) {
 }
 
 // Drop-in API for dumping colorized variables to any io.Writer
-// With everything ON (types OFF, meta-hints OFF, embedded type methods OFF)
+// With everything ON (but colors OFF)
+func FdumpNoColors(w io.Writer, values ...any) {
+	defaultConfig := DumperConfig{
+		IndentWidth:         3,
+		MaxDepth:            15,
+		MaxItems:            150,
+		MaxStringLen:        10000,
+		MaxInlineLength:     80,
+		ShowTypes:           true,
+		UseColors:           false,
+		TrackReferences:     true,
+		EmbedTypeMethods:    true,
+		ShowMetaInformation: true,
+		ShowHexdump:         true,
+	}
+	d := NewDumper(defaultConfig)
+	d.Fdump(w, values...)
+}
+
+// Drop-in API for dumping colorized variables to any io.Writer
+// (types OFF, meta-hints OFF, embedded type methods OFF)
 func FdumpValues(w io.Writer, values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
@@ -123,7 +163,27 @@ func Sdump(values ...any) string {
 }
 
 // Drop-in API for dumping colorized variables to a string
-// With everything ON (types OFF, meta-hints OFF, embedded type methods OFF)
+// With everything ON (but colors OFF)
+func SdumpNoColors(values ...any) string {
+	defaultConfig := DumperConfig{
+		IndentWidth:         3,
+		MaxDepth:            15,
+		MaxItems:            150,
+		MaxStringLen:        10000,
+		MaxInlineLength:     80,
+		ShowTypes:           true,
+		UseColors:           false,
+		TrackReferences:     true,
+		EmbedTypeMethods:    true,
+		ShowMetaInformation: true,
+		ShowHexdump:         true,
+	}
+	d := NewDumper(defaultConfig)
+	return d.Sdump(values...)
+}
+
+// Drop-in API for dumping colorized variables to a string
+// (types OFF, meta-hints OFF, embedded type methods OFF)
 func SdumpValues(values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
@@ -165,7 +225,7 @@ func SdumpHTML(values ...any) string {
 }
 
 // Drop-in API for dumping colorized variables to string with HTML formatting
-// With everything ON (types OFF, meta-hints OFF, embedded type methods OFF)
+// (types OFF, meta-hints OFF, embedded type methods OFF)
 func SdumpHTMLValues(values ...any) string {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,

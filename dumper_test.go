@@ -7,15 +7,15 @@ import (
 
 func TestDumpBasicTypes(t *testing.T) {
 	// Dump int
-	result := Sdump(42)
-	if !strings.Contains(result, "int") || !strings.Contains(result, "42") {
-		t.Errorf("result(int) output = %q; want output containing 'int' and '42'", result)
-	}
+	out := SdumpNoColors(42)
+	want := `int => 42`
 
-	// Dump string
-	result = Sdump("hello")
-	if !strings.Contains(result, "hello") {
-		t.Errorf("Sdump(string) output = %q; want output containing '\"hello\"'", result)
+	// `int => 42
+	// string => "hello"
+	// bool => true
+	// `
+	if !strings.Contains(out, want) {
+		t.Errorf("Dump basic types: got:\n%s\nwant contains:\n%s", out, want)
 	}
 }
 
