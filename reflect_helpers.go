@@ -1,8 +1,10 @@
 package govar
 
 import (
+	"fmt"
 	"reflect"
 	"runtime"
+	"sort"
 	"strings"
 	"unsafe"
 )
@@ -23,6 +25,44 @@ func checkNilInterface(v any) (string, string) {
 		return resolvedType, resolvedValue
 	}
 	return rt.String(), resolvedValue
+}
+
+func sortMapKeys(m reflect.Value) []reflect.Value {
+	if m.Kind() != reflect.Map {
+		return []reflect.Value{}
+	}
+
+	keys := m.MapKeys()
+	if len(keys) == 0 {
+		return []reflect.Value{}
+	}
+
+	// Sorting based on key type
+	switch keys[0].Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		sort.Slice(keys, func(i, j int) bool {
+			return keys[i].Int() < keys[j].Int()
+		})
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		sort.Slice(keys, func(i, j int) bool {
+			return keys[i].Uint() < keys[j].Uint()
+		})
+	case reflect.Float32, reflect.Float64:
+		sort.Slice(keys, func(i, j int) bool {
+			return keys[i].Float() < keys[j].Float()
+		})
+	case reflect.String:
+		sort.Slice(keys, func(i, j int) bool {
+			return keys[i].String() < keys[j].String()
+		})
+	default:
+		// For complex object try their fmt string repres.
+		sort.Slice(keys, func(i, j int) bool {
+			return fmt.Sprintf("%+v", keys[i].Interface()) < fmt.Sprintf("%+v", keys[j].Interface())
+		})
+	}
+
+	return keys
 }
 
 // isNil checks if the value is nil on any kind of object

@@ -162,80 +162,80 @@ func TestDumpStructs(t *testing.T) {
 	}
 }
 
-// func TestDumpMaps(t *testing.T) {
-// 	type Person struct {
-// 		Name string
-// 		Age  int
-// 	}
+func TestDumpMaps(t *testing.T) {
+	type Person struct {
+		Name string
+		Age  int
+	}
 
-// 	mixedMap := map[string]any{
-// 		"number":  1,
-// 		"boolean": true,
-// 		"string":  "foo",
-// 	}
+	mixedMap := map[string]any{
+		"number":  1,
+		"boolean": true,
+		"string":  "foo",
+	}
 
-// 	structMap := map[string]Person{
-// 		"alice": {"Alice", 30},
-// 		"bob":   {"Bob", 40},
-// 	}
+	structMap := map[string]Person{
+		"alice": {"Alice", 30},
+		"bob":   {"Bob", 40},
+	}
 
-// 	var nilMap map[string]int
-// 	emptyMap := map[int]string{}
-// 	ptrMap := &map[string]bool{"ok": true}
+	var nilMap map[string]int
+	emptyMap := map[int]string{}
+	ptrMap := &map[string]bool{"ok": true}
 
-// 	tests := []struct {
-// 		name         string
-// 		input        any
-// 		wantContains string
-// 	}{
-// 		{
-// 			name:         "map string to int",
-// 			input:        map[string]int{"a": 1, "b": 2},
-// 			wantContains: `map[string]int => |2| ["a"  => 1, "b"  => 2]`,
-// 		},
-// 		{
-// 			name:  "map with mixed value types",
-// 			input: mixedMap,
-// 			wantContains: `map[string]any => |3| [
-//    "number"   ⧉ any(int)    => 1
-//    "boolean"  ⧉ any(bool)   => true
-//    "string"   ⧉ any(string) => |R:3| "foo"
-// ]`,
-// 		},
-// 		{
-// 			name:  "map with struct values",
-// 			input: structMap,
-// 			wantContains: `map[string]govar.Person => |2| [
-//    "bob"    govar.Person => {⯀ Name string => |R:3| "Bob", ⯀ Age int => 40}
-//    "alice"  govar.Person => {⯀ Name string => |R:5| "Alice", ⯀ Age int => 30}
-// ]`,
-// 		},
-// 		{
-// 			name:         "nil map",
-// 			input:        nilMap,
-// 			wantContains: `map[string]int => <nil>`,
-// 		},
-// 		{
-// 			name:         "empty map",
-// 			input:        emptyMap,
-// 			wantContains: `map[int]string => |0| []`,
-// 		},
-// 		{
-// 			name:         "pointer to map",
-// 			input:        ptrMap,
-// 			wantContains: `*map[string]bool => |1| ["ok"  => true]`,
-// 		},
-// 	}
+	tests := []struct {
+		name         string
+		input        any
+		wantContains string
+	}{
+		{
+			name:         "map string to int",
+			input:        map[string]int{"a": 1, "b": 2},
+			wantContains: `map[string]int => |2| ["a"  => 1, "b"  => 2]`,
+		},
+		{
+			name:  "map with mixed value types",
+			input: mixedMap,
+			wantContains: `map[string]any => |3| [
+   "boolean"  ⧉ any(bool)   => true
+   "number"   ⧉ any(int)    => 1
+   "string"   ⧉ any(string) => |R:3| "foo"
+]`,
+		},
+		{
+			name:  "map with struct values",
+			input: structMap,
+			wantContains: `ap[string]govar.Person => |2| [
+   "alice"  govar.Person => {⯀ Name string => |R:5| "Alice", ⯀ Age int => 30}
+   "bob"    govar.Person => {⯀ Name string => |R:3| "Bob", ⯀ Age int => 40}
+]`,
+		},
+		{
+			name:         "nil map",
+			input:        nilMap,
+			wantContains: `map[string]int => <nil>`,
+		},
+		{
+			name:         "empty map",
+			input:        emptyMap,
+			wantContains: `map[int]string => |0| []`,
+		},
+		{
+			name:         "pointer to map",
+			input:        ptrMap,
+			wantContains: `*map[string]bool => |1| ["ok"  => true]`,
+		},
+	}
 
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			out := SdumpNoColors(tt.input)
-// 			if !strings.Contains(out, tt.wantContains) {
-// 				t.Errorf("Dump %s: got:\n%s\nwant contains:\n%s", tt.name, out, tt.wantContains)
-// 			}
-// 		})
-// 	}
-// }
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := SdumpNoColors(tt.input)
+			if !strings.Contains(out, tt.wantContains) {
+				t.Errorf("Dump %s: got:\n%s\nwant contains:\n%s", tt.name, out, tt.wantContains)
+			}
+		})
+	}
+}
 
 // func TestDumpInterfaces(t *testing.T) {
 // 	type MyInterface interface {

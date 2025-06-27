@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -416,19 +417,20 @@ func (d *Dumper) formatMap(v reflect.Value, level int, visited map[uintptr]bool)
 		d.metaHint(mapLen, "")
 		fmt.Fprint(sb, d.metaHint(mapLen, ""))
 	}
-	keys := v.MapKeys()
+
+	// keys := v.MapKeys()
+	sortedKeys := sortMapKeys(v)
 
 	fmt.Fprint(sb, "[")
 
 	if d.shouldRenderInline(v) {
 		// INLINE RENDER
-		for i, key := range keys {
+		for i, key := range sortedKeys {
 			if i >= d.config.MaxItems {
 				d.renderIndent(sb, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)"))
 				break
 			}
 
-			// keyStr := fmt.Sprintf("%v", key.Interface())
 			keyStr := d.formatMapKeyAsIndex(key)
 
 			// print element type signature
@@ -451,7 +453,7 @@ func (d *Dumper) formatMap(v reflect.Value, level int, visited map[uintptr]bool)
 		// First we do a pre-pass and calculate the lengthiest key and type
 		maxKeyLen := 0
 		maxTypeLen := 0
-		for i, key := range keys {
+		for i, key := range sortedKeys {
 			if i >= d.config.MaxItems {
 				break
 			}
@@ -465,7 +467,7 @@ func (d *Dumper) formatMap(v reflect.Value, level int, visited map[uintptr]bool)
 			}
 		}
 
-		for i, key := range keys {
+		for i, key := range sortedKeys {
 			if i >= d.config.MaxItems {
 				d.renderIndent(sb, level+1, d.ApplyFormat(ColorSlateGray, "… (truncated)"))
 				break
