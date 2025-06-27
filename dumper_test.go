@@ -6,16 +6,40 @@ import (
 )
 
 func TestDumpBasicTypes(t *testing.T) {
-	// Dump int
-	out := SdumpNoColors(42)
-	want := `int => 42`
+	tests := []struct {
+		name         string
+		input        any
+		wantContains string
+	}{
+		{"int", 42, "int => 42"},
+		{"int8", int8(8), "int8 => 8"},
+		{"int16", int16(16), "int16 => 16"},
+		{"int32", int32(32), "int32 => 32"},
+		{"int64", int64(64), "int64 => 64"},
+		{"uint", uint(42), "uint => 42"},
+		{"uint8", uint8(8), "uint8 => 8"},
+		{"uint16", uint16(16), "uint16 => 16"},
+		{"uint32", uint32(32), "uint32 => 32"},
+		{"uint64", uint64(64), "uint64 => 64"},
+		{"uintptr", uintptr(0x1234), "uintptr => 4660"},
+		{"float32", float32(3.14), "float32 => 3.14"},
+		{"float64", float64(6.28), "float64 => 6.28"},
+		{"complex64", complex64(1 + 2i), "complex64 => (1+2i)"},
+		{"complex128", complex128(3 + 4i), "complex128 => (3+4i)"},
+		{"boolTrue", true, "bool => true"},
+		{"boolFalse", false, "bool => false"},
+		{"string", "test", `string => |R:4| "test"`},
+		{"byte", byte('A'), "uint8 => 65"},
+		{"rune", rune('♥'), "int32 => 9829"},
+	}
 
-	// `int => 42
-	// string => "hello"
-	// bool => true
-	// `
-	if !strings.Contains(out, want) {
-		t.Errorf("Dump basic types: got:\n%s\nwant contains:\n%s", out, want)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := SdumpNoColors(tt.input)
+			if !strings.Contains(out, tt.wantContains) {
+				t.Errorf("Dump %s: got:\n%s\nwant contains:\n%s", tt.name, out, tt.wantContains)
+			}
+		})
 	}
 }
 
