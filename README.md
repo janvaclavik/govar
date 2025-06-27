@@ -94,7 +94,7 @@ import (
 
 func main() {
 	// Create a custom dumper with your own settings
-	myCfg := DumperConfig{
+	myCfg := govar.DumperConfig{
 		IndentWidth:         3,       // indentation step
 		MaxDepth:            15,      // nesting level limit
 		MaxItems:            100,     // max elements in a collection before trunc
@@ -110,7 +110,7 @@ func main() {
 		ShowHexdump:         true,    // shows classic hexdump on byte[] or uint8[] if true
 	}
 
-	d := NewDumper(myCfg)
+	d := govar.NewDumper(myCfg)
 
 	// Now you Dump your data with full control
 	d.Dump(myData1, myData2)
