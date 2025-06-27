@@ -643,14 +643,29 @@ func (d *Dumper) renderAllValues(sb *strings.Builder, vs ...any) {
 		rv := reflect.ValueOf(v)
 		rv = makeAddressable(rv)
 
-		// Render value's type signature
-		fmt.Fprint(sb, d.formatType(rv, false))
+		// Check for nil interface
+		vType, tmpRv := checkNilInterface(v)
+
 		// On the zero level, if types are ON, render the "mapping to" symbol
 		if d.config.ShowTypes {
+			if vType != "unknown" {
+				vType = d.formatType(rv, false)
+			} else {
+				vType = d.ApplyFormat(ColorDarkGray, vType)
+			}
+
+			// Render value's type signature
+			fmt.Fprint(sb, vType)
 			fmt.Fprint(sb, " => ")
 		}
-		// Render the value itself
-		d.renderValue(sb, rv, 0, visited)
+
+		// Check for nil value at the top
+		if tmpRv != "" {
+			sb.WriteString(d.ApplyFormat(ColorCoralRed, tmpRv))
+		} else {
+			// Render the value recursively
+			d.renderValue(sb, rv, 0, visited)
+		}
 
 		fmt.Fprintln(sb)
 	}

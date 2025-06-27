@@ -7,6 +7,24 @@ import (
 	"unsafe"
 )
 
+// checkNilInterface returns safe type/value info about possible nil interface
+func checkNilInterface(v any) (string, string) {
+	rt := reflect.TypeOf(v)
+
+	resolvedType := ""
+	resolvedValue := ""
+	if v == nil {
+		resolvedValue = "<nil>"
+		if rt != nil {
+			resolvedType = rt.String()
+		} else {
+			resolvedType = "unknown"
+		}
+		return resolvedType, resolvedValue
+	}
+	return rt.String(), resolvedValue
+}
+
 // isNil checks if the value is nil on any kind of object
 // It does not fail even if the value type cannot be nil (bool, etc...)
 func isNil(v reflect.Value) bool {
