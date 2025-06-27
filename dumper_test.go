@@ -237,70 +237,70 @@ func TestDumpMaps(t *testing.T) {
 	}
 }
 
-// func TestDumpInterfaces(t *testing.T) {
-// 	type MyInterface interface {
-// 		Dummy()
-// 	}
+func TestDumpInterfaces(t *testing.T) {
+	type MyInterface interface {
+		Dummy()
+	}
 
-// 	var nilInterface MyInterface
-// 	var emptyInterface any
-// 	var ifaceWithInt any = 123
-// 	var ifaceWithString any = "hello"
-// 	var ifaceWithStruct any = struct{ A int }{A: 7}
-// 	var ifaceWithPtr any = &struct{ B string }{B: "world"}
-// 	var ifaceWithIface any = any(123.45)
+	var nilInterface MyInterface
+	var emptyInterface any
+	var ifaceWithInt any = 123
+	var ifaceWithString any = "hello"
+	var ifaceWithStruct any = struct{ A int }{A: 7}
+	var ifaceWithPtr any = &struct{ B string }{B: "world"}
+	var ifaceWithIface any = any(123.45)
 
-// 	tests := []struct {
-// 		name         string
-// 		input        any
-// 		wantContains string
-// 	}{
-// 		{
-// 			name:         "nil interface",
-// 			input:        nilInterface,
-// 			wantContains: `unknown => <nil>`,
-// 		},
-// 		{
-// 			name:         "empty interface nil",
-// 			input:        emptyInterface,
-// 			wantContains: `unknown => <nil>`,
-// 		},
-// 		{
-// 			name:         "interface with int",
-// 			input:        ifaceWithInt,
-// 			wantContains: `any(int) => 123`,
-// 		},
-// 		{
-// 			name:         "interface with string",
-// 			input:        ifaceWithString,
-// 			wantContains: `any(string) => |R:5| "hello"`,
-// 		},
-// 		{
-// 			name:         "interface with struct",
-// 			input:        ifaceWithStruct,
-// 			wantContains: `any(struct { A int }) => {⯀ A int => 7}`,
-// 		},
-// 		{
-// 			name:         "interface with pointer to struct",
-// 			input:        ifaceWithPtr,
-// 			wantContains: `any(*struct { B string } => {⯀ B string => |R:5| "world"})`,
-// 		},
-// 		{
-// 			name:         "interface with another interface",
-// 			input:        ifaceWithIface,
-// 			wantContains: `any(float64) => 123.450000`,
-// 		},
-// 	}
+	tests := []struct {
+		name         string
+		input        any
+		wantContains string
+	}{
+		{
+			name:         "nil interface",
+			input:        nilInterface,
+			wantContains: `unknown => <nil>`,
+		},
+		{
+			name:         "empty interface nil",
+			input:        emptyInterface,
+			wantContains: `unknown => <nil>`,
+		},
+		{
+			name:         "interface with int",
+			input:        ifaceWithInt,
+			wantContains: `int => 123`,
+		},
+		{
+			name:         "interface with string",
+			input:        ifaceWithString,
+			wantContains: `string => |R:5| "hello"`,
+		},
+		{
+			name:         "interface with struct",
+			input:        ifaceWithStruct,
+			wantContains: `struct { A int } => {⯀ A int => 7}`,
+		},
+		{
+			name:         "interface with pointer to struct",
+			input:        ifaceWithPtr,
+			wantContains: `*struct { B string } => {⯀ B string => |R:5| "world"}`,
+		},
+		{
+			name:         "interface with another interface",
+			input:        ifaceWithIface,
+			wantContains: `float64 => 123.450000`,
+		},
+	}
 
-// 	for _, tt := range tests {
-// 		t.Run(tt.name, func(t *testing.T) {
-// 			out := SdumpNoColors(tt.input)
-// 			if !strings.Contains(out, tt.wantContains) {
-// 				t.Errorf("Dump %s: got:\n%s\nwant contains:\n%s", tt.name, out, tt.wantContains)
-// 			}
-// 		})
-// 	}
-// }
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := SdumpNoColors(tt.input)
+			if !strings.Contains(out, tt.wantContains) {
+				t.Errorf("Dump %s: got:\n%s\nwant contains:\n%s", tt.name, out, tt.wantContains)
+			}
+		})
+	}
+}
 
 func TestDumpChannels(t *testing.T) {
 	chInt := make(chan int)
