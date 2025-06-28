@@ -2,8 +2,8 @@ package govar
 
 import "io"
 
-// Drop-in API for dumping colorized variables to stdio & die right after
-// With everything ON (types ON, meta-hints ON, embedded type methods ON)
+// Die dumps the provided values with full formatting (types, metadata, methods, etc.)
+// to stdout, then terminates the program with os.Exit(1).
 func Die(values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
@@ -22,8 +22,8 @@ func Die(values ...any) {
 	d.Die(values...)
 }
 
-// Drop-in API for dumping colorized variables to stdout
-// With everything ON (types ON, meta-hints ON, embedded type methods ON)
+// Dump prints the given values with full formatting (types, metadata, methods, etc.)
+// to stdout. Colors are enabled.
 func Dump(values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
@@ -42,8 +42,8 @@ func Dump(values ...any) {
 	d.Dump(values...)
 }
 
-// Drop-in API for dumping colorized variables to stdout
-// With everything ON (but colors OFF)
+// DumpNoColors prints the given values to stdout with full formatting,
+// but colors are disabled
 func DumpNoColors(values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
@@ -62,8 +62,8 @@ func DumpNoColors(values ...any) {
 	d.Dump(values...)
 }
 
-// Drop-in API for dumping colorized variables to stdout
-// (types OFF, meta-hints OFF, embedded type methods OFF)
+// DumpValues prints the values to stdout with a simplified format:
+// types, metadata, and embedded methods are disabled. Colors are enabled.
 func DumpValues(values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
@@ -82,8 +82,8 @@ func DumpValues(values ...any) {
 	d.Dump(values...)
 }
 
-// Drop-in API for dumping colorized variables to any io.Writer
-// With everything ON (types, meta-hints, embedded type methods, ...)
+// Fdump writes the formatted output of the given values to the provided io.Writer.
+// All formatting options are enabled, including color.
 func Fdump(w io.Writer, values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
@@ -102,8 +102,8 @@ func Fdump(w io.Writer, values ...any) {
 	d.Fdump(w, values...)
 }
 
-// Drop-in API for dumping colorized variables to any io.Writer
-// With everything ON (but colors OFF)
+// FdumpNoColors writes formatted output to the given writer, with all formatting
+// enabled except colored output
 func FdumpNoColors(w io.Writer, values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
@@ -122,8 +122,8 @@ func FdumpNoColors(w io.Writer, values ...any) {
 	d.Fdump(w, values...)
 }
 
-// Drop-in API for dumping colorized variables to any io.Writer
-// (types OFF, meta-hints OFF, embedded type methods OFF)
+// FdumpValues writes the simplified formatted output (types off, metadata off, methods off)
+// to the given writer. Colors are enabled.
 func FdumpValues(w io.Writer, values ...any) {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
@@ -142,8 +142,8 @@ func FdumpValues(w io.Writer, values ...any) {
 	d.Fdump(w, values...)
 }
 
-// Drop-in API for dumping colorized variables to a string
-// With everything ON (types ON, meta-hints ON, embedded type methods ON)
+// Sdump returns the full-formatted string representation of the given values.
+// All features are enabled, including types, metadata, colors, and embedded methods.
 func Sdump(values ...any) string {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
@@ -162,8 +162,8 @@ func Sdump(values ...any) string {
 	return d.Sdump(values...)
 }
 
-// Drop-in API for dumping colorized variables to a string
-// With everything ON (but colors OFF)
+// SdumpNoColors returns the formatted string representation with all features enabled
+// except colored output
 func SdumpNoColors(values ...any) string {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
@@ -182,8 +182,8 @@ func SdumpNoColors(values ...any) string {
 	return d.Sdump(values...)
 }
 
-// Drop-in API for dumping colorized variables to a string
-// (types OFF, meta-hints OFF, embedded type methods OFF)
+// SdumpValues returns the simplified string representation of the given values.
+// Type info, metadata, and embedded methods are disabled. Colors are enabled.
 func SdumpValues(values ...any) string {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
@@ -202,8 +202,9 @@ func SdumpValues(values ...any) string {
 	return d.Sdump(values...)
 }
 
-// Drop-in API for dumping colorized variables to string with HTML formatting
-// With everything ON (types ON, meta-hints ON, embedded type methods ON)
+// SdumpHTML returns the HTML-formatted string representation of the values
+// with full formatting options enabled, including embedded methods, metadata and
+// colored output
 func SdumpHTML(values ...any) string {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
@@ -224,8 +225,8 @@ func SdumpHTML(values ...any) string {
 	return d.SdumpHTML(values...)
 }
 
-// Drop-in API for dumping colorized variables to string with HTML formatting
-// (types OFF, meta-hints OFF, embedded type methods OFF)
+// SdumpHTMLValues returns a simplified HTML-formatted string of the values.
+// Type information, metadata, and embedded methods are omitted.
 func SdumpHTMLValues(values ...any) string {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
