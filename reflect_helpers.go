@@ -9,7 +9,9 @@ import (
 	"unsafe"
 )
 
-// checkNilInterface returns safe type/value info about possible nil interface
+// checkNilInterface returns the dynamic type and an empty value description
+// if the given interface value is nil. Otherwise returns the real type
+// and an empty string for the value.
 func checkNilInterface(v any) (string, string) {
 	rt := reflect.TypeOf(v)
 
@@ -27,7 +29,9 @@ func checkNilInterface(v any) (string, string) {
 	return rt.String(), resolvedValue
 }
 
-// findCallerInStack finds the first non-govar function call in the call-stack.
+// findCallerInStack inspects the call stack to locate the first caller
+// not within the govar package. It returns (file, line, govarFuncName).
+// govarFuncName is the last govar function in the stack, if any.
 func findCallerInStack() (string, int, string) {
 	govarFuncName := ""
 	for i := 2; i < 15; i++ {
@@ -45,6 +49,9 @@ func findCallerInStack() (string, int, string) {
 	return "", 0, ""
 }
 
+// findTypeMethods returns all exported methods associated with the given
+// named reflect.Type (value or pointer receiver), excluding duplicates.
+// Unnamed types (no PkgPath or Name) return an empty method slice.
 func findTypeMethods(typ reflect.Type) []reflect.Method {
 	seen := make(map[string]bool)
 	methods := []reflect.Method{}
@@ -78,7 +85,9 @@ func findTypeMethods(typ reflect.Type) []reflect.Method {
 	return methods
 }
 
-// forceExported returns a value that is guaranteed to be exported, even if it is unexported.
+// forceExported ensures unexported struct fields are accessible via reflection.
+// If the value cannot be interfaced, but is addressable,
+// it bypasses access restrictions via unsafe.NewAt.
 func forceExported(v reflect.Value) reflect.Value {
 	if v.CanInterface() {
 		return v
@@ -90,11 +99,67 @@ func forceExported(v reflect.Value) reflect.Value {
 	return v
 }
 
+// getFunctionName returns the full package-qualified function name from a reflect.Value.
 func getFunctionName(v reflect.Value) string {
 	return runtime.FuncForPC(v.Pointer()).Name()
 }
 
-// makeAddressable ensures the value is addressable, wrapping structs in pointers if necessary.
+// isNil returns true if v.Kind is a nilable type (Ptr, Slice, Map, Interface, Func, Chan)
+// and the value is actually nil.
+func isNil(v reflect.Value) bool {
+	switch v.Kind() {
+	case reflect.Ptr, reflect.Slice, reflect.Map, reflect.Interface, reflect.Func, reflect.Chan:
+		return v.IsNil()
+	default:
+		return false
+	}
+}
+
+// isSimpleCollection returns true if every element of the slice/array
+// is a simple value (bool, number, or string).
+func isSimpleCollection(v reflect.Value) bool {
+	for i := 0; i < v.Len(); i++ {
+		elem := v.Index(i)
+		if !isSimpleValue(elem) {
+			return false
+		}
+	}
+	return true
+}
+
+// isSimpleMap returns true if every key and value of the map is a simple value.
+func isSimpleMap(v reflect.Value) bool {
+	for _, key := range v.MapKeys() {
+		val := v.MapIndex(key)
+		if !isSimpleValue(key) || !isSimpleValue(val) {
+			return false
+		}
+	}
+	return true
+}
+
+// isSimpleValue returns true if the kind is one of the basic scalar types.
+func isSimpleValue(v reflect.Value) bool {
+	if !v.IsValid() {
+		return true
+	}
+
+	switch v.Kind() {
+	case reflect.Bool,
+		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Uintptr,
+		reflect.Float32, reflect.Float64,
+		reflect.String:
+		return true
+	default:
+		return false
+	}
+}
+
+// makeAddressable returns an addressable value:
+// if v is an unaddressable struct, it wraps it in a newly allocated pointer.
+// Otherwise, returns v unchanged.
 func makeAddressable(v reflect.Value) reflect.Value {
 	// Already addressable? Do nothing
 	if v.CanAddr() {
@@ -111,6 +176,8 @@ func makeAddressable(v reflect.Value) reflect.Value {
 	return v
 }
 
+// sortMapKeys returns map keys sorted by a natural order for primitive types,
+// or lexicographically by fmt.Sprintf for complex types.
 func sortMapKeys(m reflect.Value) []reflect.Value {
 	if m.Kind() != reflect.Map {
 		return []reflect.Value{}
@@ -149,13 +216,8 @@ func sortMapKeys(m reflect.Value) []reflect.Value {
 	return keys
 }
 
-// toAddressableByteSlice is a safe fallback helper for
-// creating an addressable copy of a potentialy unaddressable array
-// Parameters:
-//   - v reflect.Value
-//
-// Returns:
-//   - []byte
+// toAddressableByteSlice returns a copy of a byte-like array/slice,
+// ensuring the returned slice is addressable.
 func toAddressableByteSlice(v reflect.Value) []byte {
 	// Allocate and copy
 	out := make([]byte, v.Len())
@@ -163,53 +225,4 @@ func toAddressableByteSlice(v reflect.Value) []byte {
 		out[i] = uint8(v.Index(i).Uint())
 	}
 	return out
-}
-
-// isNil checks if the value is nil on any kind of object
-// It does not fail even if the value type cannot be nil (bool, etc...)
-func isNil(v reflect.Value) bool {
-	switch v.Kind() {
-	case reflect.Ptr, reflect.Slice, reflect.Map, reflect.Interface, reflect.Func, reflect.Chan:
-		return v.IsNil()
-	default:
-		return false
-	}
-}
-
-func isSimpleCollection(v reflect.Value) bool {
-	for i := 0; i < v.Len(); i++ {
-		elem := v.Index(i)
-		if !isSimpleValue(elem) {
-			return false
-		}
-	}
-	return true
-}
-
-func isSimpleMap(v reflect.Value) bool {
-	for _, key := range v.MapKeys() {
-		val := v.MapIndex(key)
-		if !isSimpleValue(key) || !isSimpleValue(val) {
-			return false
-		}
-	}
-	return true
-}
-
-func isSimpleValue(v reflect.Value) bool {
-	if !v.IsValid() {
-		return true
-	}
-
-	switch v.Kind() {
-	case reflect.Bool,
-		reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
-		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
-		reflect.Uintptr,
-		reflect.Float32, reflect.Float64,
-		reflect.String:
-		return true
-	default:
-		return false
-	}
 }
