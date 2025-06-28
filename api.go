@@ -17,6 +17,7 @@ func Die(values ...any) {
 		EmbedTypeMethods:    true,
 		ShowMetaInformation: true,
 		ShowHexdump:         true,
+		IgnoreStringer:      false,
 	}
 	d := NewDumper(defaultConfig)
 	d.Die(values...)
@@ -37,6 +38,7 @@ func Dump(values ...any) {
 		EmbedTypeMethods:    true,
 		ShowMetaInformation: true,
 		ShowHexdump:         true,
+		IgnoreStringer:      false,
 	}
 	d := NewDumper(defaultConfig)
 	d.Dump(values...)
@@ -57,6 +59,7 @@ func DumpNoColors(values ...any) {
 		EmbedTypeMethods:    true,
 		ShowMetaInformation: true,
 		ShowHexdump:         true,
+		IgnoreStringer:      false,
 	}
 	d := NewDumper(defaultConfig)
 	d.Dump(values...)
@@ -77,6 +80,7 @@ func DumpValues(values ...any) {
 		EmbedTypeMethods:    false,
 		ShowMetaInformation: false,
 		ShowHexdump:         true,
+		IgnoreStringer:      false,
 	}
 	d := NewDumper(defaultConfig)
 	d.Dump(values...)
@@ -97,6 +101,7 @@ func Fdump(w io.Writer, values ...any) {
 		EmbedTypeMethods:    true,
 		ShowMetaInformation: true,
 		ShowHexdump:         true,
+		IgnoreStringer:      false,
 	}
 	d := NewDumper(defaultConfig)
 	d.Fdump(w, values...)
@@ -117,6 +122,7 @@ func FdumpNoColors(w io.Writer, values ...any) {
 		EmbedTypeMethods:    true,
 		ShowMetaInformation: true,
 		ShowHexdump:         true,
+		IgnoreStringer:      false,
 	}
 	d := NewDumper(defaultConfig)
 	d.Fdump(w, values...)
@@ -137,6 +143,7 @@ func FdumpValues(w io.Writer, values ...any) {
 		EmbedTypeMethods:    false,
 		ShowMetaInformation: false,
 		ShowHexdump:         true,
+		IgnoreStringer:      false,
 	}
 	d := NewDumper(defaultConfig)
 	d.Fdump(w, values...)
@@ -157,6 +164,7 @@ func Sdump(values ...any) string {
 		EmbedTypeMethods:    true,
 		ShowMetaInformation: true,
 		ShowHexdump:         true,
+		IgnoreStringer:      false,
 	}
 	d := NewDumper(defaultConfig)
 	return d.Sdump(values...)
@@ -177,6 +185,7 @@ func SdumpNoColors(values ...any) string {
 		EmbedTypeMethods:    true,
 		ShowMetaInformation: true,
 		ShowHexdump:         true,
+		IgnoreStringer:      false,
 	}
 	d := NewDumper(defaultConfig)
 	return d.Sdump(values...)
@@ -197,6 +206,7 @@ func SdumpValues(values ...any) string {
 		EmbedTypeMethods:    false,
 		ShowMetaInformation: false,
 		ShowHexdump:         true,
+		IgnoreStringer:      false,
 	}
 	d := NewDumper(defaultConfig)
 	return d.Sdump(values...)
@@ -220,6 +230,7 @@ func SdumpHTML(values ...any) string {
 		EmbedTypeMethods:    true,
 		ShowMetaInformation: true,
 		ShowHexdump:         true,
+		IgnoreStringer:      false,
 	}
 	d := NewDumper(defaultConfig)
 	return d.SdumpHTML(values...)
@@ -242,6 +253,7 @@ func SdumpHTMLValues(values ...any) string {
 		EmbedTypeMethods:    false,
 		ShowMetaInformation: false,
 		ShowHexdump:         true,
+		IgnoreStringer:      false,
 	}
 	d := NewDumper(defaultConfig)
 	return d.SdumpHTML(values...)

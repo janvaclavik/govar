@@ -1,16 +1,16 @@
 # govar
 
-`govar` is a flexible, zero-dependency Go variable inspector and pretty-printer.
+`govar` is a flexible and user-friendly Go variable inspector and pretty-printer.
 
 It helps you **visualize Go data structures** deeply and colorfully. Dump variables to stdout, collect structured debug strings, render HTML dumps for UIs, and even introspect your own codebase with `who`.
 
 [>] Designed for **debugging**, **exploration**, **documentation**, and **interface analysis**.
 
-- ✅ Covered with table-driven tests
-- ✅ Goroutine safe
 - ✅ Highly readable output
-- ✅ Well-documented
+- ✅ Goroutine safe
+- ✅ Covered with table-driven tests
 - ✅ Type & interface introspection tools
+- ✅ Well-documented
 
 Whether you're debugging, documenting, or just staring into the void of your own data structures — `govar` is here to make sense of it all.
 
@@ -115,6 +115,7 @@ func main() {
 		EmbedTypeMethods:    true,    // shows implemented methods on any type
 		ShowMetaInformation: true,    // shows sizes, capacities, "rune length", etc
 		ShowHexdump:         true,    // shows classic hexdump on byte[] or uint8[]
+		IgnoreStringer:      false,   // ignores fmt.Stringer/error formatting if true
 	}
 
 	d := govar.NewDumper(myCfg)

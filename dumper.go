@@ -29,6 +29,7 @@ type DumperConfig struct {
 	EmbedTypeMethods    bool   // Include exported methods from embedded types.
 	ShowMetaInformation bool   // Show metadata such as string lengths or slice capacities.
 	ShowHexdump         bool   // Show byte slices as hexdump when applicable.
+	IgnoreStringer      bool   // Ignores fmt.Stringer and error formatting if true
 }
 
 // Dumper is a configurable structure-aware pretty printer for Go values.
@@ -898,7 +899,7 @@ func (d *Dumper) renderValue(sb *strings.Builder, v reflect.Value, level int, vi
 		return
 	}
 
-	if v.Kind() != reflect.Interface {
+	if v.Kind() != reflect.Interface && !d.config.IgnoreStringer {
 		// check for concrete interface (std fmt.Stringer) representation
 		if str := d.asStringerInterface(v); str != "" {
 			if d.config.ShowMetaInformation {
