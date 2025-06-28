@@ -445,3 +445,77 @@ func TestDumpNestedValues(t *testing.T) {
 		})
 	}
 }
+
+func TestDumpEmbeddedStructs(t *testing.T) {
+	type Address struct {
+		City string
+		Zip  string
+	}
+
+	type Person struct {
+		Name string
+		Age  int
+		Address
+	}
+
+	type Employee struct {
+		Person
+		Position string
+	}
+
+	tests := []struct {
+		name         string
+		input        any
+		wantContains []string
+	}{
+		{
+			name: "Embedded struct fields visible",
+			input: Person{
+				Name: "John",
+				Age:  40,
+				Address: Address{
+					City: "New York",
+					Zip:  "10001",
+				},
+			},
+			wantContains: []string{
+				`govar.Person => {`,
+				`⯀ Name     string        => |R:4| "John"`,
+				`⯀ Age      int           => 40`,
+				`⯀ Address  govar.Address => {⯀ City string => |R:8| "New York", ⯀ Zip string => |R:5| "10001"}`,
+			},
+		},
+		{
+			name: "Deeply embedded structs",
+			input: Employee{
+				Person: Person{
+					Name: "Alice",
+					Age:  30,
+					Address: Address{
+						City: "San Francisco",
+						Zip:  "94105",
+					},
+				},
+				Position: "Engineer",
+			},
+			wantContains: []string{
+				`⯀ Person    govar.Person => {`,
+				`⯀ Name     string        => |R:5| "Alice"`,
+				`⯀ Age      int           => 30`,
+				`⯀ Address  govar.Address => {⯀ City string => |R:13| "San Francisco", ⯀ Zip string => |R:5| "94105"}`,
+				`⯀ Position  string       => |R:8| "Engineer`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := SdumpNoColors(tt.input)
+			for _, want := range tt.wantContains {
+				if !strings.Contains(out, want) {
+					t.Errorf("Dump %s: output missing expected fragment:\nwant contains:\n%s\ngot:\n%s", tt.name, want, out)
+				}
+			}
+		})
+	}
+}
