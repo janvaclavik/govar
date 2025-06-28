@@ -110,7 +110,7 @@ func (d *Dumper) SdumpHTML(vs ...any) string {
 func (d *Dumper) asStringerInterface(v reflect.Value) string {
 	val := v
 	if !val.CanInterface() {
-		val = forceExported(val)
+		val = tryExport(val)
 	}
 	if val.CanInterface() {
 		if s, ok := val.Interface().(fmt.Stringer); ok {
@@ -130,7 +130,7 @@ func (d *Dumper) asStringerInterface(v reflect.Value) string {
 func (d *Dumper) asErrorInterface(v reflect.Value) string {
 	val := v
 	if !val.CanInterface() {
-		val = forceExported(val)
+		val = tryExport(val)
 	}
 	if val.CanInterface() {
 		if e, ok := val.Interface().(error); ok {
@@ -771,7 +771,7 @@ func (d *Dumper) renderStruct(sb *strings.Builder, v reflect.Value, level int, v
 			symbol := "⯀ "
 			if field.PkgPath != "" {
 				symbol = "🞏 "
-				fieldVal = forceExported(fieldVal)
+				fieldVal = tryExport(fieldVal)
 			}
 
 			symbol = d.ApplyFormat(ColorDarkGoBlue, symbol)
@@ -803,7 +803,7 @@ func (d *Dumper) renderStruct(sb *strings.Builder, v reflect.Value, level int, v
 			fieldVal := v.Field(i)
 
 			if field.PkgPath != "" {
-				fieldVal = forceExported(fieldVal)
+				fieldVal = tryExport(fieldVal)
 			}
 			if utf8.RuneCountInString(field.Name) > maxKeyLen {
 				maxKeyLen = utf8.RuneCountInString(field.Name)
@@ -833,7 +833,7 @@ func (d *Dumper) renderStruct(sb *strings.Builder, v reflect.Value, level int, v
 			symbol := "⯀ "
 			if field.PkgPath != "" {
 				symbol = "🞏 "
-				fieldVal = forceExported(fieldVal)
+				fieldVal = tryExport(fieldVal)
 			}
 			unformattedFieldLen := utf8.RuneCountInString(symbol + field.Name)
 			unformattedTypeLen := utf8.RuneCountInString(d.formatTypeNoColors(fieldVal, false))

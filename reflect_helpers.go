@@ -10,8 +10,9 @@ import (
 )
 
 // checkNilInterface returns the dynamic type and an empty value description
-// if the given interface value is nil. Otherwise returns the real type
-// and an empty string for the value.
+// ("<nil>") if the given interface value is nil. Otherwise returns the real type
+// and an empty string for the value. If the value was nil and resolved type is
+// also nil, retuned type is "unknown"
 func checkNilInterface(v any) (string, string) {
 	rt := reflect.TypeOf(v)
 
@@ -34,7 +35,7 @@ func checkNilInterface(v any) (string, string) {
 // govarFuncName is the last govar function in the stack, if any.
 func findCallerInStack() (string, int, string) {
 	govarFuncName := ""
-	for i := 2; i < 15; i++ {
+	for i := 1; i < 15; i++ {
 		pc, file, line, ok := runtime.Caller(i)
 		if !ok {
 			break
@@ -85,10 +86,10 @@ func findTypeMethods(typ reflect.Type) []reflect.Method {
 	return methods
 }
 
-// forceExported ensures unexported struct fields are accessible via reflection.
-// If the value cannot be interfaced, but is addressable,
-// it bypasses access restrictions via unsafe.NewAt.
-func forceExported(v reflect.Value) reflect.Value {
+// tryExport returns an interfaceable version of v if possible.
+// If v is unexported but addressable, it tries to obtain a usable value via unsafe.
+// If not possible, returns v unchanged.
+func tryExport(v reflect.Value) reflect.Value {
 	if v.CanInterface() {
 		return v
 	}
