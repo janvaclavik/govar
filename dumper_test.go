@@ -599,3 +599,58 @@ func TestDumpStructsWithInterfacesAndAnonymousFields(t *testing.T) {
 		})
 	}
 }
+
+func TestDumpStructsWithUnexportedFields(t *testing.T) {
+	type withPrivate struct {
+		Public  string
+		private int
+	}
+
+	type nestedPrivate struct {
+		Public string
+		inner  withPrivate
+	}
+
+	tests := []struct {
+		name         string
+		input        any
+		wantContains []string
+	}{
+		{
+			name: "Struct with unexported field",
+			input: withPrivate{
+				Public:  "visible",
+				private: 99,
+			},
+			wantContains: []string{
+				`govar.withPrivate => {⯀ Public string => |R:7| "visible", 🞏 private int => 99}`,
+			},
+		},
+		{
+			name: "Nested struct with unexported field",
+			input: nestedPrivate{
+				Public: "outer",
+				inner: withPrivate{
+					Public:  "inner public",
+					private: 42,
+				},
+			},
+			wantContains: []string{
+				`govar.nestedPrivate => {`,
+				`⯀ Public  string            => |R:5| "outer"`,
+				`🞏 inner   govar.withPrivate => {⯀ Public string => |R:12| "inner public", 🞏 private int => 42}`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := SdumpNoColors(tt.input)
+			for _, want := range tt.wantContains {
+				if !strings.Contains(out, want) {
+					t.Errorf("Dump %s: missing expected string:\nwant contains:\n%s\ngot:\n%s", tt.name, want, out)
+				}
+			}
+		})
+	}
+}
