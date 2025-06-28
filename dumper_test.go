@@ -519,3 +519,83 @@ func TestDumpEmbeddedStructs(t *testing.T) {
 		})
 	}
 }
+
+type Describer interface {
+	Describe() string
+}
+
+type DescribedThing struct {
+	What string
+}
+
+func (d DescribedThing) Describe() string {
+	return "I am " + d.What
+}
+
+func TestDumpStructsWithInterfacesAndAnonymousFields(t *testing.T) {
+
+	type ContainerWithInterface struct {
+		ID       int
+		Contents Describer
+	}
+
+	type AnonymousField struct {
+		string
+		int
+	}
+
+	type ComplexStruct struct {
+		AnonymousField // embedded anonymously
+		Data           Describer
+	}
+
+	tests := []struct {
+		name         string
+		input        any
+		wantContains []string
+	}{
+		{
+			name: "Struct with interface field",
+			input: ContainerWithInterface{
+				ID: 101,
+				Contents: DescribedThing{
+					What: "a powerful dumper",
+				},
+			},
+			wantContains: []string{
+				`govar.ContainerWithInterface => {`,
+				`⯀ ID        int                                     => 101`,
+				`⯀ Contents  ⧉ govar.Describer(govar.DescribedThing) => {`,
+				`⯀ What      string => |R:17| "a powerful dumper"`,
+				`⦿ Describe  func(govar.DescribedThing) string`,
+			},
+		},
+		{
+			name: "Struct with anonymous fields and interface",
+			input: ComplexStruct{
+				AnonymousField: AnonymousField{
+					string: "anonymous!",
+					int:    7,
+				},
+				Data: DescribedThing{What: "dynamic and described"},
+			},
+			wantContains: []string{
+				`⯀ AnonymousField  govar.AnonymousField                    => {🞏 string string => |R:10| "anonymous!", 🞏 int int => 7}`,
+				`⯀ Data            ⧉ govar.Describer(govar.DescribedThing) => {`,
+				`⯀ What      string => |R:21| "dynamic and described"`,
+				`⦿ Describe  func(govar.DescribedThing) string`,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := SdumpNoColors(tt.input)
+			for _, want := range tt.wantContains {
+				if !strings.Contains(out, want) {
+					t.Errorf("Dump %s: output missing expected fragment:\nwant contains:\n%s\ngot:\n%s", tt.name, want, out)
+				}
+			}
+		})
+	}
+}
