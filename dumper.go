@@ -31,7 +31,12 @@ type DumperConfig struct {
 	ShowHexdump         bool   // Show byte slices as hexdump when applicable.
 }
 
-// Dumper formats Go values according to DumperConfig for debugging or introspection.
+// Dumper is a configurable structure-aware pretty printer for Go values.
+//
+// It provides colorized and formatted output to stdout, io.Writer, or string formats,
+// making it easier to introspect complex values during debugging, logging, or inspection.
+// Dumper should be constructed via NewDumper with a DumperConfig. For common use cases,
+// high-level helpers like Dump, Sdump, and Fdump are available in the govar API.
 type Dumper struct {
 	nextRefID       int
 	referenceCounts map[uintptr]int
