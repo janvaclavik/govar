@@ -1,6 +1,6 @@
 # govar
 
-`govar` is a flexible, zero-dependency Go value inspector and pretty-printer.
+`govar` is a flexible, zero-dependency Go variable inspector and pretty-printer.
 
 It helps you **visualize Go data structures** deeply and colorfully. Dump variables to stdout, collect structured debug strings, render HTML dumps for UIs, and even introspect your own codebase with `who`.
 
@@ -8,8 +8,8 @@ It helps you **visualize Go data structures** deeply and colorfully. Dump variab
 
 - ✅ Covered with table-driven tests
 - ✅ Goroutine safe
-- ✅ Well-documented, highly readable output
 - ✅ Highly readable output
+- ✅ Well-documented
 - ✅ Type & interface introspection tools
 
 Whether you're debugging, documenting, or just staring into the void of your own data structures — `govar` is here to make sense of it all.
