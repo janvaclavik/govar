@@ -6,19 +6,19 @@ import (
 )
 
 type Formatter interface {
-	ApplyFormat(code string, str string) string
+	ApplyFormat(colorCode string, str string) string
 }
 
 type PlainFormatter struct{}
 
-func (f PlainFormatter) ApplyFormat(code string, str string) string {
+func (f PlainFormatter) ApplyFormat(colorCode string, str string) string {
 	return str
 }
 
 type ANSIcolorFormatter struct{}
 
-func (f ANSIcolorFormatter) ApplyFormat(code string, str string) string {
-	return code + str + ColorReset
+func (f ANSIcolorFormatter) ApplyFormat(colorCode string, str string) string {
+	return colorCode + str + ColorReset
 }
 
 type HTMLformatter struct {
@@ -26,9 +26,9 @@ type HTMLformatter struct {
 	UseColors    bool
 }
 
-func (f HTMLformatter) ApplyFormat(code string, str string) string {
+func (f HTMLformatter) ApplyFormat(colorCode string, str string) string {
 	if f.UseColors {
-		return fmt.Sprintf(`<%s style="color:%s">%s</%s>`, f.HTMLtagToken, ColorPaletteHTML[code], html.EscapeString(str), f.HTMLtagToken)
+		return fmt.Sprintf(`<%s style="color:%s">%s</%s>`, f.HTMLtagToken, ColorPaletteHTML[colorCode], html.EscapeString(str), f.HTMLtagToken)
 	} else {
 		return fmt.Sprintf(`<%s style="color:#fefefe">%s</%s>`, f.HTMLtagToken, html.EscapeString(str), f.HTMLtagToken)
 	}

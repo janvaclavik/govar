@@ -99,10 +99,10 @@ func (d *Dumper) SdumpHTML(vs ...any) string {
 	d.Formatter = HTMLformatter{HTMLtagToken: d.config.HTMLtagToken, UseColors: d.config.UseColors}
 
 	sb := &strings.Builder{}
-	sb.WriteString(`<pre class="govar" style="background-color:black; color:white; padding:4px; border-radius: 4px">` + "\n")
+	sb.WriteString(fmt.Sprintf(`<%s class="govar" style="background-color:black; color:white; padding:4px; border-radius: 4px">`+"\n", d.config.HTMLtagSection))
 	d.renderHeader(sb)
 	d.renderAllValues(sb, vs...)
-	sb.WriteString("</pre>")
+	sb.WriteString(fmt.Sprintf("</%s", d.config.HTMLtagSection))
 	return sb.String()
 }
 
