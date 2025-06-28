@@ -184,7 +184,7 @@ func SdumpNoColors(values ...any) string {
 
 // Drop-in API for dumping colorized variables to a string
 // (types OFF, meta-hints OFF, embedded type methods OFF)
-func SdumpValues(values ...any) {
+func SdumpValues(values ...any) string {
 	defaultConfig := DumperConfig{
 		IndentWidth:         3,
 		MaxDepth:            15,
@@ -199,7 +199,7 @@ func SdumpValues(values ...any) {
 		ShowHexdump:         true,
 	}
 	d := NewDumper(defaultConfig)
-	d.Sdump(values...)
+	return d.Sdump(values...)
 }
 
 // Drop-in API for dumping colorized variables to string with HTML formatting
