@@ -393,3 +393,55 @@ func TestDumpFunctions(t *testing.T) {
 		})
 	}
 }
+
+func TestDumpNestedValues(t *testing.T) {
+	type Inner struct {
+		Z int
+	}
+	type Outer struct {
+		A int
+		B *Inner
+		C []Inner
+		D map[string]*Inner
+	}
+
+	inner := &Inner{Z: 99}
+	outer := Outer{
+		A: 1,
+		B: inner,
+		C: []Inner{{Z: 2}, {Z: 3}},
+		D: map[string]*Inner{"key": inner},
+	}
+
+	tests := []struct {
+		name         string
+		input        any
+		wantContains []string
+	}{
+		{
+			name:  "Nested structs with slice, map, and pointer",
+			input: outer,
+			wantContains: []string{
+				`govar.Outer => {`,
+				`⯀ A  int                     => 1`,
+				`⯀ B  *govar.Inner            => &1 {⯀ Z int => 99}`, // Pointer to Inner
+				`⯀ C  []govar.Inner           => |2| [`,              // Inner's field
+				`0 govar.Inner => {⯀ Z int => 2}`,                    // Slice
+				`1 govar.Inner => {⯀ Z int => 3}`,
+				`⯀ D  map[string]*govar.Inner => |1| [`, // Map
+				`"key" => ↩︎ &1`,                        // Map key
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			out := SdumpNoColors(tt.input)
+			for _, want := range tt.wantContains {
+				if !strings.Contains(out, want) {
+					t.Errorf("Dump %s: output missing expected fragment:\nwant contains:\n%s\ngot:\n%s", tt.name, want, out)
+				}
+			}
+		})
+	}
+}
