@@ -1,12 +1,16 @@
 # govar
 
-`govar` is a handy Go object inspector and variable dumper. It gives you **styled, readable, and insightful peeks** into Go variables, structs, functions, slices, maps — you name it. Perfect for debugging, learning, or writing better tools.
+`govar` is a flexible, zero-dependency Go value inspector and pretty-printer.
 
-- 🎯 **No extra dependencies**
-- 🧵 **Goroutine safe**
-- 🎨 **Colorful ANSI, HTML output, or just plain text**
-- 🛠️ **Customizable formatting**
-- 🔍 **Type & interface introspection tools**
+It helps you **visualize Go data structures** deeply and colorfully. Dump variables to stdout, collect structured debug strings, render HTML dumps for UIs, and even introspect your own codebase with `who`.
+
+[>] Designed for **debugging**, **exploration**, **documentation**, and **interface analysis**.
+
+- ✅ Covered with table-driven tests
+- ✅ Goroutine safe
+- ✅ Well-documented, highly readable output
+- ✅ Highly readable output
+- ✅ Type & interface introspection tools
 
 Whether you're debugging, documenting, or just staring into the void of your own data structures — `govar` is here to make sense of it all.
 
@@ -14,11 +18,14 @@ Whether you're debugging, documenting, or just staring into the void of your own
 
 ## 🤔 Why use `govar`?
 
-Because fmt.Printf("%+v", x) is fine... until it absolutely isn’t.
+`fmt.Printf("%+v", x)` is fine...
+Until your variable turns into a cryptic jungle of pointers, interfaces, and nested maps.
 
-Most Go dumpers either stop at the surface or produce unreadable blobs. `govar` goes deep — printing **structured values**, **types**, **method sets**, and even **byte slice hexdumps** in a way that's actually *pleasant to read*.
+That’s where govar shines.
 
-And unlike some packages, `govar` lets you **poke around in your own project** — finding out which types implement interfaces, or which interfaces your types satisfy.
+It doesn’t just dump your data - it decodes it. With colors, types, method sets, lengths, and even byte slice hexdumps that don’t hurt to look at.
+
+And if you're wondering "what does this type even implement?" — govar has answers. It can explore your codebase and show what implements what, without the guesswork.
 
 ---
 
@@ -31,14 +38,14 @@ And unlike some packages, `govar` lets you **poke around in your own project** �
 
 | Feature | Description |
 |--------|-------------|
-| 📦 Pretty‑prints any Go value | Supports nested structs, pointers, maps, funcs, channels, etc. |
-| 🎨 Colorful output | ANSI terminal colors or styled HTML |
-| 🧠 Smart struct field markers | `⯀` for exported, `🞏` for unexported, `⦿` for type methods |
-| 🕳️ Cycle detection | Handles circular refs & shared pointers |
-| 🧾 Hex dump | Nicely formatted hexdump for `[]byte` |
-| 📐 Size & cap info | Shows lengths and capacities |
-| 🧩 Interface discovery | Use `who` to introspect your codebase types & interfaces |
-| 🐛 Drop-in API | Just import & `govar.Dump(myThing)` |
+| 🎨 Pretty‑prints any Go value | Nested structs, slices, pointers, maps, funcs, interfaces, channels |
+| 🌈 Output options | Colorized ANSI, raw text, or full HTML |
+| 🔎 Rich meta info | Type hints, field visibility (`⯀`, `🞏`, `⦿`), size, cap, length, etc. |
+| 🔁 Reference tracking | Detects cycles, shared pointers |
+| 🧾 Hex dump | Nicely formatted hexdump for `[]byte`, `[]uint8` and similar |
+| 🧠 Code introspection | Find type → interface, interface → type relationships |
+| 💾 Dump anywhere | To stdout, to `io.Writer`, to string, or HTML |
+| 🧰 Customizable | Use `DumperConfig` to define exactly how you want dumps to work |
 
 ## 🚀 Install
 
@@ -105,9 +112,9 @@ func main() {
 		TrackReferences:     true,    // tracks references to objects
 		HTMLtagToken:        "span",  // token wrapping tag for HTML dumps
 		HTMLtagSection:      "pre",   // block wrapping tag for HTML dumps
-		EmbedTypeMethods:    true,    // shows implemented methods on structs if true
+		EmbedTypeMethods:    true,    // shows implemented methods on any type
 		ShowMetaInformation: true,    // shows sizes, capacities, "rune length", etc
-		ShowHexdump:         true,    // shows classic hexdump on byte[] or uint8[] if true
+		ShowHexdump:         true,    // shows classic hexdump on byte[] or uint8[]
 	}
 
 	d := govar.NewDumper(myCfg)
