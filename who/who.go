@@ -1,3 +1,6 @@
+// Package who provides utilities for analyzing Go packages to determine
+// which types implement specific interfaces, and which interfaces are
+// implemented by specific types within a project or across all dependencies.
 package who
 
 import (
@@ -9,6 +12,7 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+// isConcreteNamedType checks whether the given object is a concrete (non-interface) named type.
 func isConcreteNamedType(obj types.Object) bool {
 	// Must be a type declaration
 	typeName, ok := obj.(*types.TypeName)
@@ -27,6 +31,12 @@ func isConcreteNamedType(obj types.Object) bool {
 	return !isInterface
 }
 
+// Implements finds all concrete types in the current module and its dependencies
+// that implement the interface identified by the fully-qualified name
+// (e.g. "net/http.Handler").
+//
+// Returns a sorted list of fully-qualified type names like "mypkg.MyType".
+// Returns an error if the interface cannot be resolved or packages fail to load.
 func Implements(interfaceFullName string) ([]string, error) {
 	// 1. Parse "pkgpath.InterfaceName"
 	typePkgPath, typeName, err := splitTypeName(interfaceFullName)
@@ -90,13 +100,16 @@ func Implements(interfaceFullName string) ([]string, error) {
 	return result, nil
 }
 
-// Interfaces finds interfaces in the current project codespace that the given type implements.
+// Interfaces finds all project-local interfaces that are implemented by the given type,
+// specified by fully-qualified name (e.g. "mypkg.MyStruct").
+// This does not include interfaces from the standard library or external modules.
 func Interfaces(typeFullName string) ([]string, error) {
 	return findInterfaces(typeFullName, false)
 }
 
-// InterfacesExt finds interfaces anywhere (std, external imports, codespace)
-// that the given type implements.
+// InterfacesExt returns interfaces implemented by the given type
+// from the standard library and external dependencies only (excluding project-local interfaces).
+// It excludes interfaces found in the current project (i.e. those returned by Interfaces()).
 func InterfacesExt(typeFullName string) ([]string, error) {
 
 	// First, find all matched interfaces, including stdlib and external imports
@@ -129,6 +142,9 @@ func InterfacesExt(typeFullName string) ([]string, error) {
 	return listExt, nil
 }
 
+// findInterfaces returns all interfaces (optionally including external ones) that the
+// specified type implements, based on its fully-qualified name.
+// This is a shared internal helper used by Interfaces and InterfacesExt.
 func findInterfaces(typeFullName string, includeExt bool) ([]string, error) {
 	typePkgPath, typeName, err := splitTypeName(typeFullName)
 	// fmt.Println("(target) type name: ", typeName)
@@ -198,7 +214,10 @@ func findInterfaces(typeFullName string, includeExt bool) ([]string, error) {
 	return implementedInterfaces, nil
 }
 
-// splitTypeName splits "somepkg.MyType" into "somepkg" and "MyType"
+// splitTypeName splits a fully-qualified type string such as "mypkg.MyType"
+// into its package path ("mypkg") and type name ("MyType") components.
+//
+// Returns an error if the format is invalid (e.g. missing a dot separator).
 func splitTypeName(full string) (pkgPath, typeName string, err error) {
 	lastDot := strings.LastIndex(full, ".")
 	if lastDot < 0 {
