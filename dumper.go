@@ -56,7 +56,7 @@ type Dumper struct {
 func NewDumper(cfg DumperConfig) *Dumper {
 	return &Dumper{
 		config:             cfg,
-		Formatter:          PlainFormatter{},
+		Formatter:          &PlainFormatter{},
 		referenceStats:     make(map[canonicalKey]*RefStats),
 		referenceIDs:       make(map[canonicalKey]string),
 		canonicalRoots:     make(map[canonicalKey]canonicalKey),
@@ -77,9 +77,9 @@ func (d *Dumper) Die(vs ...any) {
 // Dump prints values to stdout using the configured formatting.
 func (d *Dumper) Dump(vs ...any) {
 	if d.config.UseColors {
-		d.Formatter = ANSIcolorFormatter{}
+		d.Formatter = &ANSIcolorFormatter{}
 	} else {
-		d.Formatter = PlainFormatter{}
+		d.Formatter = &PlainFormatter{}
 	}
 	sb := &strings.Builder{}
 	d.renderHeader(sb)
@@ -90,9 +90,9 @@ func (d *Dumper) Dump(vs ...any) {
 // Fdump writes values to the given io.Writer using the configured formatting.
 func (d *Dumper) Fdump(w io.Writer, vs ...any) {
 	if d.config.UseColors {
-		d.Formatter = ANSIcolorFormatter{}
+		d.Formatter = &ANSIcolorFormatter{}
 	} else {
-		d.Formatter = PlainFormatter{}
+		d.Formatter = &PlainFormatter{}
 	}
 	sb := &strings.Builder{}
 	d.renderHeader(sb)
@@ -103,9 +103,9 @@ func (d *Dumper) Fdump(w io.Writer, vs ...any) {
 // Sdump returns a string containing the formatted values.
 func (d *Dumper) Sdump(vs ...any) string {
 	if d.config.UseColors {
-		d.Formatter = ANSIcolorFormatter{}
+		d.Formatter = &ANSIcolorFormatter{}
 	} else {
-		d.Formatter = PlainFormatter{}
+		d.Formatter = &PlainFormatter{}
 	}
 	sb := &strings.Builder{}
 	d.renderHeader(sb)
@@ -115,7 +115,7 @@ func (d *Dumper) Sdump(vs ...any) string {
 
 // SdumpHTML returns an HTML-formatted dump wrapped in a <pre> block.
 func (d *Dumper) SdumpHTML(vs ...any) string {
-	d.Formatter = HTMLformatter{HTMLtagToken: d.config.HTMLtagToken, UseColors: d.config.UseColors}
+	d.Formatter = &HTMLformatter{HTMLtagToken: d.config.HTMLtagToken, UseColors: d.config.UseColors}
 
 	sb := &strings.Builder{}
 	sb.WriteString(fmt.Sprintf(`<%s class="govar" style="background-color:black; color:white; padding:4px; border-radius: 4px">`+"\n", d.config.HTMLtagSection))

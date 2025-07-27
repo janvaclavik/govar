@@ -16,21 +16,21 @@ func TestFormatters(t *testing.T) {
 	}{
 		{
 			name:      "PlainFormatter ignores formatting",
-			formatter: govar.PlainFormatter{},
+			formatter: &govar.PlainFormatter{},
 			colorCode: govar.ColorSkyBlue, // blue, but irrelevant
 			input:     "hello",
 			want:      "hello",
 		},
 		{
 			name:      "ANSIcolorFormatter wraps input in ANSI escape",
-			formatter: govar.ANSIcolorFormatter{},
+			formatter: &govar.ANSIcolorFormatter{},
 			colorCode: govar.ColorSkyBlue, // blue
 			input:     "hello",
 			want:      "\x1b[38;5;123mhello\x1b[0m",
 		},
 		{
 			name:      "HTMLformatter wraps input in <html style>",
-			formatter: govar.HTMLformatter{UseColors: true, HTMLtagToken: "span"},
+			formatter: &govar.HTMLformatter{UseColors: true, HTMLtagToken: "span"},
 			colorCode: govar.ColorSkyBlue, // blue
 			input:     "hello",
 			want:      `<span style="color:#77DDEE">hello</span>`,

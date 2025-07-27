@@ -19,7 +19,7 @@ type Formatter interface {
 // the input string without any formatting applied.
 type PlainFormatter struct{}
 
-func (f PlainFormatter) ApplyFormat(colorCode string, str string) string {
+func (f *PlainFormatter) ApplyFormat(colorCode string, str string) string {
 	return str
 }
 
@@ -27,7 +27,7 @@ func (f PlainFormatter) ApplyFormat(colorCode string, str string) string {
 // escape codes to apply terminal color formatting.
 type ANSIcolorFormatter struct{}
 
-func (f ANSIcolorFormatter) ApplyFormat(colorCode string, str string) string {
+func (f *ANSIcolorFormatter) ApplyFormat(colorCode string, str string) string {
 	return colorCode + str + ColorReset
 }
 
@@ -45,7 +45,7 @@ type HTMLformatter struct {
 	UseColors bool
 }
 
-func (f HTMLformatter) ApplyFormat(colorCode string, str string) string {
+func (f *HTMLformatter) ApplyFormat(colorCode string, str string) string {
 	if f.UseColors {
 		return fmt.Sprintf(`<%s style="color:%s">%s</%s>`, f.HTMLtagToken, ColorPaletteHTML[colorCode], html.EscapeString(str), f.HTMLtagToken)
 	} else {
