@@ -631,6 +631,11 @@ func (d *Dumper) renderAllValues(sb *strings.Builder, vs ...any) {
 	}
 }
 
+// renderBackref writes a back-reference symbol "↩︎ &N" to the string builder.
+func (d *Dumper) renderBackref(sb *strings.Builder, id string) {
+	fmt.Fprint(sb, d.ApplyFormat(ColorPink, "↩︎ "+id))
+}
+
 // renderHeader prints the file and line number of the Dump() call.
 func (d *Dumper) renderHeader(out io.Writer) {
 	file, line, govarFuncName := findCallerInStack()
@@ -674,6 +679,11 @@ func (d *Dumper) renderHexdump(sb *strings.Builder, v reflect.Value, level int) 
 			d.ApplyFormat(ColorLime, asciiPart),
 		)
 	}
+}
+
+// renderID writes an ID symbol "&N" to the string builder.
+func (d *Dumper) renderID(sb *strings.Builder, id string) {
+	fmt.Fprint(sb, d.ApplyFormat(ColorGoldenrod, id+" "))
 }
 
 // renderIndent writes indentation spaces to the string builder.
@@ -737,7 +747,7 @@ func (d *Dumper) renderStruct(sb *strings.Builder, v reflect.Value, level int) {
 						def, defExists := d.definitionPoints[rootKey]
 						if defExists && def.isPointerRef && deref(fieldVal).Type() == def.valueType {
 							d.renderStructField(sb, field, fieldVal, 0, 0, true)
-							sb.WriteString(d.ApplyFormat(ColorSlateGray, "↩︎ "+id))
+							d.renderBackref(sb, id)
 							continue
 						}
 					}
@@ -764,7 +774,7 @@ func (d *Dumper) renderStruct(sb *strings.Builder, v reflect.Value, level int) {
 						if defExists && def.isPointerRef && deref(fieldVal).Type() == def.valueType {
 							d.renderIndent(sb, level+1, "")
 							d.renderStructField(sb, field, fieldVal, maxKeyLen, maxTypeLen, false)
-							sb.WriteString(d.ApplyFormat(ColorSlateGray, "↩︎ "+id))
+							d.renderBackref(sb, id)
 							fmt.Fprintln(sb)
 							continue
 						}
@@ -850,14 +860,14 @@ func (d *Dumper) renderValue(sb *strings.Builder, v reflect.Value, level int, sk
 					// This is the definition point. If we've already rendered it (e.g., a cycle),
 					// print a back-reference. Otherwise, print the ID and render the value.
 					if d.renderedIDs[rootKey] {
-						sb.WriteString(d.ApplyFormat(ColorSlateGray, "↩︎ "+id))
+						d.renderBackref(sb, id)
 						return
 					}
-					sb.WriteString(d.ApplyFormat(ColorGoldenrod, id+" "))
+					d.renderID(sb, id)
 					d.renderedIDs[rootKey] = true
 				} else {
 					// This is not the definition point, so it must be a back-reference.
-					sb.WriteString(d.ApplyFormat(ColorSlateGray, "↩︎ "+id))
+					d.renderBackref(sb, id)
 					return
 				}
 			}
