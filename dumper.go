@@ -477,26 +477,52 @@ func (d *Dumper) formatMap(v reflect.Value, level int) string {
 // formatMapKeyAsIndex formats a map key for display. Simple keys are formatted
 // directly, while complex keys are summarized.
 func (d *Dumper) formatMapKeyAsIndex(k reflect.Value) string {
+	// First, check if the key can be interfaced. This is the crucial fix
+	// to prevent the panic with unexported map keys
+	exportedKey := tryExport(k)
+	if !exportedKey.CanInterface() {
+		// If we can't interface it, we can't get its value.
+		// Fallback to a safe representation using its type, so the dumper doesn't crash.
+		// For unexported fields, we can often still get the primitive value
+		// using kind-specific accessors, which are safe to call.
+		switch k.Kind() {
+		case reflect.String:
+			return strconv.Quote(k.String())
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			return strconv.FormatInt(k.Int(), 10)
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+			return strconv.FormatUint(k.Uint(), 10)
+		case reflect.Bool:
+			return strconv.FormatBool(k.Bool())
+		default:
+			// The ultimate safe fallback for complex, unhandled types.
+			return fmt.Sprintf("<%s>", d.ApplyFormat(ColorSlateGray, k.Type().String()))
+		}
+	}
+
 	var keyFormatted string
+	// Now that we've confirmed it's safe, we can proceed.
+	keyInterface := exportedKey.Interface()
+
 	if d.isSimpleMapKey(k) {
 		switch k.Kind() {
 		case reflect.String:
-			keyFormatted = strconv.Quote(k.Interface().(string))
+			keyFormatted = strconv.Quote(keyInterface.(string))
 		case reflect.Interface:
 			if k.Type().NumMethod() == 0 {
-				if str, ok := k.Interface().(string); ok {
+				if str, ok := keyInterface.(string); ok {
 					keyFormatted = strconv.Quote(str)
 				} else {
-					keyFormatted = fmt.Sprintf("%v", k.Interface())
+					keyFormatted = fmt.Sprintf("%v", keyInterface)
 				}
 			} else {
-				keyFormatted = fmt.Sprintf("%v", k.Interface())
+				keyFormatted = fmt.Sprintf("%v", keyInterface)
 			}
 		default:
-			keyFormatted = fmt.Sprintf("%v", k.Interface())
+			keyFormatted = fmt.Sprintf("%v", keyInterface)
 		}
 	} else {
-		keyFormatted = fmt.Sprintf("%v", k.Interface())
+		keyFormatted = fmt.Sprintf("%v", keyInterface)
 	}
 
 	return keyFormatted
