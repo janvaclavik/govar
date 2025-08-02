@@ -2,5 +2,5 @@ package govar
 
 const (
 	PackageName = "govar"
-	Version     = "0.9.7"
+	Version     = "0.9.8"
 )
