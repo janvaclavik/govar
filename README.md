@@ -38,15 +38,15 @@ It doesn’t just dump your data; it decodes it. It turns cryptic jungles of poi
 
 | Feature | Description |
 | :---- | :---- |
-| 🎨 **Pretty‑prints any Go value** | Nested structs, slices, pointers, maps, funcs, interfaces, channels. |
-| 🔗 **Advanced ID/Back-Ref System** | The *only* Go dumper that assigns stable IDs (`&1`, `&2`...) to values and prints back-references (`↩︎ &1`) for pointers. Instantly visualize cycles, shared data, and complex object graphs. |
-| 🗣️ **Stringer & Error Aware** | Automatically dumps values using their `fmt.Stringer` or `error` interface description for clearer output, unless disabled. |
-| 🌈 **Multiple Output Options** | Colorized ANSI for your terminal, raw text for logs, or full HTML for UIs. |
-| 🔎 **Rich Meta Information** | Type hints, interface markers (`⧉`), field visibility (`⯀`, `🞏`), method types (`⦿`), size, capacity, rune length, and more. |
-| 🧾 **Formatted Hex Dumps** | Beautifully formatted hexdumps for []byte, []uint8, and similar byte slices that are actually easy to read. |
-| 🧠 **Code Introspection (who)** | Find type → interface and interface → type relationships in your codebase without guesswork. |
-| 💾 **Dump Anywhere** | To ***stdout***, any ***io.Writer***, a ***string***, or an ***HTML string***. |
-| 🧰 **Highly Customizable** | Use `govar.DumperConfig` to control everything from indentation and depth to colors and reference tracking. |
+| **Pretty‑prints any Go value** | Nested structs, slices, pointers, maps, funcs, interfaces, channels. |
+| **Advanced ID/Back-Ref System** | The *only* Go dumper that assigns stable IDs (`&1`, `&2`...) to values and prints back-references (`↩︎ &1`) for pointers. Instantly visualize cycles, shared data, and complex object graphs. |
+| **Stringer & Error Aware** | Automatically dumps values using their `fmt.Stringer` or `error` interface description for clearer output, unless disabled. |
+| **Multiple Output Options** | Colorized ANSI for your terminal, raw text for logs, or full HTML for UIs. |
+| **Rich Meta Information** | Type hints, interface markers (`⧉`), field visibility (`⯀`, `🞏`), method types (`⦿`), size, capacity, rune length, and more. |
+| **Formatted Hex Dumps** | Beautifully formatted hexdumps for []byte, []uint8, and similar byte slices that are actually easy to read. |
+| **Dump Anywhere** | To ***stdout***, any ***io.Writer***, a ***string***, or an ***HTML string***. |
+| **Highly Customizable** | Use `govar.DumperConfig` to control everything from indentation and depth to colors and reference tracking. |
+| **Code Introspection (who)** | Find type → interface and interface → type relationships in your codebase without guesswork. |
 
 ## **🚀 Install**
 
@@ -126,8 +126,8 @@ govar.Dump(alice, bob)
 }
 ```
 
-* &1 **(ID):** govar saw the "Alice" struct and assigned it the ID &1.
-* ↩︎ &2 **(Back-Reference):** This clearly shows that *alice.Loves* points back to the struct that was assigned the ID &2 (Bob). The cycle is immediately obvious.
+* `&1` **(ID):** govar saw the "Alice" struct and assigned it the ID &1.
+* `↩︎ &2` **(Back-Reference):** This clearly shows that *alice.Loves* points back to the struct that was assigned the ID &2 (Bob). The cycle is immediately obvious.
 
 This works across multiple variables, nested fields, and complex data structures.
 
@@ -165,7 +165,7 @@ func main() {
 
 ## **🔍 The "Who" Introspection Helpers**
 
-Ever wonder which of your structs implement io.Writer, or what interfaces a specific type satisfies? The govar/who subpackage is a static analysis tool that answers these questions, helping you understand your codebase's type and interface relationships without writing complex reflection code.
+Ever wonder which of your structs implement `io.Writer`, or what interfaces a specific type satisfies? The `govar/who` subpackage is a static analysis tool that answers these questions, helping you understand your codebase's type and interface relationships without writing complex reflection code.
 
 ```go
 package main
