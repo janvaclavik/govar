@@ -917,14 +917,14 @@ func (d *Dumper) renderValue(sb *strings.Builder, v reflect.Value, level int, sk
 	if exportedV.Kind() != reflect.Interface && !d.config.IgnoreStringer {
 		if str := d.asStringerInterface(exportedV); str != "" {
 			if d.config.ShowMetaInformation {
-				fmt.Fprint(sb, d.metaHint("as Stringer", ""))
+				fmt.Fprint(sb, d.metaHint("Stringer:", ""))
 			}
 			fmt.Fprint(sb, str)
 			return
 		}
 		if str := d.asErrorInterface(exportedV); str != "" {
 			if d.config.ShowMetaInformation {
-				fmt.Fprint(sb, d.metaHint("as error", ""))
+				fmt.Fprint(sb, d.metaHint("error:", ""))
 			}
 			fmt.Fprint(sb, str)
 			return
