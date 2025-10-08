@@ -268,4 +268,23 @@ func main() {
 		sharedSubSlice,
 	}
 	govar.Dump(test19)
+
+	// --- Test Case #20: Unreferenced Slice in a Struct ---
+	fmt.Println("\n\n--- Test Case #20 ---")
+
+	type Nod struct {
+		Name     string
+		Children []*Nod
+		Link     *Nod
+	}
+
+	// Create the same 3-node hierarchy as before
+	child2 := &Nod{Name: "Child-2"}
+	child1 := &Nod{Name: "Child-1", Children: []*Nod{child2}}
+	root := &Nod{Name: "Root", Children: []*Nod{child1}}
+	root.Link = child2
+
+	// The critical difference: dump all nodes as separate top-level arguments.
+	// This mirrors the original govar.Dump(ceo, vpEng, vpSales, ...) call.
+	govar.Dump(root, child1, child2)
 }
