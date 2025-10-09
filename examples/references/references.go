@@ -279,12 +279,11 @@ func main() {
 	}
 
 	// Create the same 3-node hierarchy as before
-	child2 := &Nod{Name: "Child-2"}
-	child1 := &Nod{Name: "Child-1", Children: []*Nod{child2}}
-	root := &Nod{Name: "Root", Children: []*Nod{child1}}
-	root.Link = child2
+	tc20_child2 := &Nod{Name: "Child-2"}
+	tc20_child1 := &Nod{Name: "Child-1", Children: []*Nod{tc20_child2}}
+	tc20_root := &Nod{Name: "Root", Children: []*Nod{tc20_child1}}
+	tc20_root.Link = tc20_child2
 
-	// The critical difference: dump all nodes as separate top-level arguments.
-	// This mirrors the original govar.Dump(ceo, vpEng, vpSales, ...) call.
-	govar.Dump(root, child1, child2)
+	// Dump all nodes as separate top-level arguments.
+	govar.Dump(tc20_root, tc20_child1, tc20_child2)
 }

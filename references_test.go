@@ -202,6 +202,19 @@ func TestReferenceScenarios(t *testing.T) {
 	sharedSubSlice := []string{"shared", "data"}
 	test19 := [][]string{sharedSubSlice, {"unique", "data"}, sharedSubSlice}
 
+	// --- Test Case #20: Unreferenced Slice (Variadic) ---
+	type Nod struct {
+		Name     string
+		Children []*Nod
+		Link     *Nod
+	}
+
+	// Create the same 3-node hierarchy as before
+	tc20_child2 := &Nod{Name: "Child-2"}
+	tc20_child1 := &Nod{Name: "Child-1", Children: []*Nod{tc20_child2}}
+	tc20_root := &Nod{Name: "Root", Children: []*Nod{tc20_child1}}
+	tc20_root.Link = tc20_child2
+
 	// --- Test Table ---
 	testCases := []struct {
 		name     string
@@ -465,6 +478,32 @@ govar.ZST => &1 {}
    1 []string => |2| [0 => |R:6| "unique", 1 => |R:4| "data"]
    2 []string => ↩︎ &1
 ]
+`,
+		},
+		{
+			"TC20_UnreferencedSliceVariadic",
+			[]any{tc20_root, tc20_child1, tc20_child2},
+			`*govar.Nod => {
+   ⯀ Name      string       => |R:4| "Root"
+   ⯀ Children  []*govar.Nod => |1| [
+      0 => ↩︎ &2
+   ]
+   ⯀ Link      *govar.Nod   => ↩︎ &1
+}
+
+*govar.Nod => &2 {
+   ⯀ Name      string       => |R:7| "Child-1"
+   ⯀ Children  []*govar.Nod => |1| [
+      0 => ↩︎ &1
+   ]
+   ⯀ Link      *govar.Nod   => <nil>
+}
+
+*govar.Nod => &1 {
+   ⯀ Name      string       => |R:7| "Child-2"
+   ⯀ Children  []*govar.Nod => <nil>
+   ⯀ Link      *govar.Nod   => <nil>
+}
 `,
 		},
 	}

@@ -48,6 +48,7 @@ type Dumper struct {
 	definitionPoints   map[canonicalKey]definitionPoint // The chosen definition point for each ID.
 	renderedIDs        map[canonicalKey]bool            // Tracks if an ID has already been printed.
 	fakeAddrs          map[any]uintptr                  // Assigns synthetic addresses to non-addressable primitives.
+	visitedForScan     map[canonicalKey]bool            // Tracks visited nodes for the pre-scan BFS.
 	// --- Simple Cycle Detection State ---
 	visitedPointers map[unsafe.Pointer]bool // Used for basic cycle detection when TrackReferences is off.
 }
@@ -64,6 +65,7 @@ func NewDumper(cfg DumperConfig) *Dumper {
 		definitionPoints:   make(map[canonicalKey]definitionPoint),
 		renderedIDs:        make(map[canonicalKey]bool),
 		fakeAddrs:          make(map[any]uintptr),
+		visitedForScan:     make(map[canonicalKey]bool),
 		visitedPointers:    make(map[unsafe.Pointer]bool),
 	}
 }
@@ -378,9 +380,10 @@ func (d *Dumper) formatChan(v reflect.Value) string {
 	} else {
 		symbol := d.ApplyFormat(ColorGoldenrod, "⮁")
 		chDir := v.Type().ChanDir().String()
-		if chDir == "chan<-" {
+		switch chDir {
+		case "chan<-":
 			symbol = d.ApplyFormat(ColorGoBlue, "🡹")
-		} else if chDir == "<-chan" {
+		case "<-chan":
 			symbol = d.ApplyFormat(ColorGreen, "🢃")
 		}
 		result := ""

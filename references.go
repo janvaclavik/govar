@@ -363,7 +363,7 @@ func (d *Dumper) processValue(v reflect.Value, level int) {
 // to collect statistics about every value, such as reference counts and depth.
 func (d *Dumper) preScanBFS(val reflect.Value) {
 	queue := []queueItem{{val, 0}}
-	traversed := make(map[canonicalKey]bool)
+
 	for len(queue) > 0 {
 		item := queue[0]
 		queue = queue[1:]
@@ -381,10 +381,10 @@ func (d *Dumper) preScanBFS(val reflect.Value) {
 
 		// Avoid re-traversing the same composite value.
 		key, ok := d.getRawKey(targetVal)
-		if !ok || traversed[key] {
+		if !ok || d.visitedForScan[key] {
 			continue
 		}
-		traversed[key] = true
+		d.visitedForScan[key] = true
 		queue = d.addChildrenToQueue(queue, item.v, item.level)
 	}
 }
@@ -399,6 +399,7 @@ func (d *Dumper) resetState() {
 	d.definitionPoints = make(map[canonicalKey]definitionPoint)
 	d.renderedIDs = make(map[canonicalKey]bool)
 	d.fakeAddrs = make(map[any]uintptr)
+	d.visitedForScan = make(map[canonicalKey]bool)
 }
 
 // unifyAllCopies is the second analysis pass. It identifies values that are identical
